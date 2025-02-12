@@ -1,0 +1,35 @@
+#!/bin/bash
+
+target_directory="${1}"
+
+if [ -z "$PROJECT_DIRECTORY" ]; then
+	echo "Please set project directory before continuing. For example export PROJECT_DIRECTORY=..."
+	exit 1
+fi
+
+cd "$PROJECT_DIRECTORY" || exit 1
+
+echo "Running script"
+
+if [ -z "$target_directory" ]; then
+	echo "No target directory"
+	echo "Exiting."
+	exit 1
+fi
+
+
+if [ ! -d "$target_directory" ]; then
+	echo "Target directory $target_directory does not exist. Please input a correct one"
+	echo "Exiting"
+	exit 1
+fi
+	
+	
+
+for i in images/baseline_result/*; do
+	image_name=$(basename "$i")
+	printf "Testing image %s from folder %s against %s" "$image_name" "images/baseline_result"  "$target_directory"
+	cmp  "$i" "${target_directory}"/"$(basename "${i}")" &>/dev/null && printf "\t\t (SUCCESS)\n" || printf "\t\t (FAIL)\n"
+done
+
+
