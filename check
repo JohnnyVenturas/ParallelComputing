@@ -28,8 +28,8 @@ fi
 
 for i in images/baseline_result/*; do
 	image_name=$(basename "$i")
-	printf "Testing image %s from folder %s against %s" "$image_name" "images/baseline_result"  "$target_directory"
-	cmp  "$i" "${target_directory}"/"$(basename "${i}")" &>/dev/null && printf "\t\t (SUCCESS)\n" || printf "\t\t (FAIL)\n"
+	cmp  "$i" "${target_directory}"/"$(basename "${i}")" &>/dev/null && printf "(SUCCESS)\t\t" || printf "   (FAIL)\t\t"
+	printf "Testing image %s from folder %s against %s\n" "$image_name" "images/baseline_result"  "$target_directory"
 done
 
 
