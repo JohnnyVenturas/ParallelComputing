@@ -2,7 +2,7 @@ SRC_DIR=src_para
 HEADER_DIR=include
 OBJ_DIR=obj_para
 
-CC=gcc
+CC=/usr/bin/gcc
 CFLAGS=-O3 -fopenmp -I$(HEADER_DIR)
 LDFLAGS=-lm
 

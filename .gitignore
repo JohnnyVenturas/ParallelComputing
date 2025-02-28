@@ -1,2 +1,4 @@
 # Ignorer les images dans le dossier images
 images/
+
+test_openmp.c
