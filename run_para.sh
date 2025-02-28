@@ -10,7 +10,11 @@ if [ -z "$1" ]; then
 fi
 
 export OMP_NUM_THREADS=$1
-echo "Running with $OMP_NUM_THREADS threads"
+echo -e "\n Running with $OMP_NUM_THREADS threads \n"
+
+# Set the project directory
+export PROJECT_DIRECTORY=$(pwd)
+echo -e "Project directory set to $PROJECT_DIRECTORY \n"
 
 make -f Makefile_para
 
@@ -19,7 +23,10 @@ OUTPUT_DIR=images/processed_parallelized
 mkdir $OUTPUT_DIR 2>/dev/null
 
 # Clean the durations_para.csv file
-# > durations_para.csv
+> durations_para.csv
+
+# possible to parallelize the following loop?
+
 
 for i in $INPUT_DIR/*gif ; do
     DEST=$OUTPUT_DIR/`basename $i .gif`-sobel-para.gif
@@ -27,3 +34,17 @@ for i in $INPUT_DIR/*gif ; do
 
     ./sobelf_para $i $DEST
 done
+
+# Check the results
+echo -e "\nResults check:"
+echo "=============="
+echo -e "Baseline:./images/baseline_result"
+echo -e "Processed:./images/processed_parallelized"
+echo ""
+./check images/processed_parallelized
+
+
+# Printing the results
+echo -e "\n Printing results..."
+python Compare_runtime.py
+
