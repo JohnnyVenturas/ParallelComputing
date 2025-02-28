@@ -93,6 +93,7 @@ load_pixels( char * filename )
 
 
     /* Fill the width and height */
+    #pragma omp parallel for 
     for ( i = 0 ; i < n_images ; i++ ) 
     {
         width[i] = g->SavedImages[i].ImageDesc.Width ;
@@ -141,6 +142,7 @@ load_pixels( char * filename )
 
     // Parallelize this allocation?
 
+    #pragma omp parallel for 
     for ( i = 0 ; i < n_images ; i++ ) 
     {
         p[i] = (pixel *)malloc( width[i] * height[i] * sizeof( pixel ) ) ;
@@ -159,24 +161,19 @@ load_pixels( char * filename )
     // Each image is independent from the others
     // Each pixel is independent from the others
 
-    #pragma omp parallel for private(i) schedule(dynamic)
+    // Vérifier le colormap local en dehors de la région parallèle
+    for (int i = 0; i < n_images; i++) {
+        if (g->SavedImages[i].ImageDesc.ColorMap) {
+            fprintf(stderr, "Error: application does not support local colormap\n");
+            return NULL;
+        }
+    }
+
+    #pragma omp parallel for private(i) firstprivate(colmap) schedule(dynamic) collapse(2)
     for ( i = 0 ; i < n_images ; i++ )
     {
-        int j ;
-
-        /* Get the local colormap if needed */
-        if ( g->SavedImages[i].ImageDesc.ColorMap )
-        {
-
-            /* TODO No support for local color map */
-            fprintf( stderr, "Error: application does not support local colormap\n" ) ;
-            return NULL ;
-
-            colmap = g->SavedImages[i].ImageDesc.ColorMap ;
-        }
-
         /* Traverse the image and fill pixels */
-        for ( j = 0 ; j < width[i] * height[i] ; j++ ) 
+        for ( int j = 0 ; j < width[i] * height[i] ; j++ ) 
         {
             int c ;
 
@@ -313,7 +310,8 @@ store_pixels( char * filename, animated_gif * image )
 
 
 
-    /* Process extension blocks in main structure */
+        /* Process extension blocks in main structure */
+    #pragma omp parallel for private(j, k, moy) shared(image, colormap, n_colors)
     for ( j = 0 ; j < image->g->ExtensionBlockCount ; j++ )
     {
         int f ;
@@ -323,74 +321,71 @@ store_pixels( char * filename, animated_gif * image )
         {
             int tr_color = image->g->ExtensionBlocks[j].Bytes[3] ;
 
-            if ( tr_color >= 0 &&
-                    tr_color < 255 )
+            if ( tr_color >= 0 && tr_color < 255 )
             {
-
                 int found = -1 ;
 
-                moy = 
-                    (
-                     image->g->SColorMap->Colors[ tr_color ].Red
-                     +
-                     image->g->SColorMap->Colors[ tr_color ].Green
-                     +
-                     image->g->SColorMap->Colors[ tr_color ].Blue
-                    ) / 3 ;
+                moy = (
+                    image->g->SColorMap->Colors[ tr_color ].Red +
+                    image->g->SColorMap->Colors[ tr_color ].Green +
+                    image->g->SColorMap->Colors[ tr_color ].Blue
+                ) / 3 ;
                 if ( moy < 0 ) moy = 0 ;
                 if ( moy > 255 ) moy = 255 ;
 
-#if SOBELF_DEBUG
+    #if SOBELF_DEBUG
                 printf( "[DEBUG] Transparency color image %d (%d,%d,%d) -> (%d,%d,%d)\n",
-                        i,
+                        j,
                         image->g->SColorMap->Colors[ tr_color ].Red,
                         image->g->SColorMap->Colors[ tr_color ].Green,
                         image->g->SColorMap->Colors[ tr_color ].Blue,
                         moy, moy, moy ) ;
-#endif
+    #endif
 
                 for ( k = 0 ; k < n_colors ; k++ )
                 {
                     if ( 
-                            moy == colormap[k].Red
-                            &&
-                            moy == colormap[k].Green
-                            &&
-                            moy == colormap[k].Blue
-                       )
+                        moy == colormap[k].Red &&
+                        moy == colormap[k].Green &&
+                        moy == colormap[k].Blue
+                    )
                     {
                         found = k ;
+                        break ;
                     }
                 }
-                if ( found == -1  ) 
+                if ( found == -1 ) 
                 {
-                    if ( n_colors >= 256 ) 
+                    #pragma omp critical
                     {
-                        fprintf( stderr, 
-                                "Error: Found too many colors inside the image\n"
-                               ) ;
-                        return 0 ;
+                        if ( n_colors >= 256 ) 
+                        {
+                            fprintf( stderr, 
+                                    "Error: Found too many colors inside the image\n"
+                                ) ;
+                            return 0 ;
+                        }
+
+    #if SOBELF_DEBUG
+                        printf( "[DEBUG]\tNew color %d\n",
+                                n_colors ) ;
+    #endif
+
+                        colormap[n_colors].Red = moy ;
+                        colormap[n_colors].Green = moy ;
+                        colormap[n_colors].Blue = moy ;
+
+                        image->g->ExtensionBlocks[j].Bytes[3] = n_colors ;
+
+                        n_colors++ ;
                     }
-
-#if SOBELF_DEBUG
-                    printf( "[DEBUG]\tNew color %d\n",
-                            n_colors ) ;
-#endif
-
-                    colormap[n_colors].Red = moy ;
-                    colormap[n_colors].Green = moy ;
-                    colormap[n_colors].Blue = moy ;
-
-
-                    image->g->ExtensionBlocks[j].Bytes[3] = n_colors ;
-
-                    n_colors++ ;
-                } else
+                } 
+                else
                 {
-#if SOBELF_DEBUG
+    #if SOBELF_DEBUG
                     printf( "[DEBUG]\tFound existing color %d\n",
                             found ) ;
-#endif
+    #endif
                     image->g->ExtensionBlocks[j].Bytes[3] = found ;
                 }
             }
