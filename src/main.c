@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/time.h>
+#include <mpi.h>
 
 #include "gif_lib.h"
 
@@ -783,6 +784,17 @@ int main(int argc, char **argv) {
     /* FILTER Timer start */
     gettimeofday(&t1, NULL);
 
+    //Separating work
+
+    MPI_Init(&argc, &argv);
+    int processes, rank;
+
+    MPI_Comm_size(MPI_COMM_WORLD, &processes);
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    
+    if(image->n_images == processes) {
+            
+    }
     /* Convert the pixels into grayscale */
     apply_gray_filter(image);
 
@@ -791,6 +803,8 @@ int main(int argc, char **argv) {
 
     /* Apply sobel filter on pixels */
     apply_sobel_filter(image);
+
+    MPI_Finalize();
 
     /* FILTER Timer stop */
     gettimeofday(&t2, NULL);
