@@ -466,6 +466,13 @@ store_pixels( char * filename, animated_gif * image )
 
     p = image->p ;
 
+
+
+
+
+
+
+    
     /* Find the number of colors inside the image */
     for ( i = 0 ; i < image->n_images ; i++ )
     {
@@ -510,6 +517,12 @@ store_pixels( char * filename, animated_gif * image )
             }
         }
     }
+
+
+
+
+
+
 
 #if SOBELF_DEBUG
     printf( "OUTPUT: found %d color(s)\n", n_colors ) ;
