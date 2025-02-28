@@ -12,12 +12,14 @@ fi
 export OMP_NUM_THREADS=$1
 echo "Running with $OMP_NUM_THREADS threads"
 
-
 make -f Makefile_para
 
 INPUT_DIR=images/original
-OUTPUT_DIR=images/parallelized
+OUTPUT_DIR=images/processed_parallelized
 mkdir $OUTPUT_DIR 2>/dev/null
+
+# Clean the durations_para.csv file
+# > durations_para.csv
 
 for i in $INPUT_DIR/*gif ; do
     DEST=$OUTPUT_DIR/`basename $i .gif`-sobel-para.gif

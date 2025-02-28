@@ -1014,7 +1014,8 @@ main( int argc, char ** argv )
     char * output_filename ;
     animated_gif * image ;
     struct timeval t1, t2;
-    double duration ;
+    double import_duration, filter_duration, export_duration;
+    FILE *duration_file;
 
     /* Check command-line arguments */
     if ( argc < 3 )
@@ -1026,21 +1027,34 @@ main( int argc, char ** argv )
     input_filename = argv[1] ;
     output_filename = argv[2] ;
 
+    /* Open the file to store durations */
+    duration_file = fopen("durations_para.csv", "a");
+    if (duration_file == NULL) {
+        fprintf(stderr, "Error opening file to write durations\n");
+        return 1;
+    }
+
+    /* Check if the file is empty to write the header */
+    fseek(duration_file, 0, SEEK_END);
+    if (ftell(duration_file) == 0) {
+        fprintf(duration_file, "Filename,Import Duration,Filter Duration,Export Duration\n");
+    }
+    fseek(duration_file, 0, SEEK_SET);
+
     /* IMPORT Timer start */
     gettimeofday(&t1, NULL);
 
     /* Load file and store the pixels in array */
-    // can be parallelized
     image = load_pixels( input_filename ) ;
     if ( image == NULL ) { return 1 ; }
 
     /* IMPORT Timer stop */
     gettimeofday(&t2, NULL);
 
-    duration = (t2.tv_sec -t1.tv_sec)+((t2.tv_usec-t1.tv_usec)/1e6);
+    import_duration = (t2.tv_sec -t1.tv_sec)+((t2.tv_usec-t1.tv_usec)/1e6);
 
     printf( "GIF loaded from file %s with %d image(s) in %lf s\n", 
-            input_filename, image->n_images, duration ) ;
+            input_filename, image->n_images, import_duration ) ;
 
     /* FILTER Timer start */
     gettimeofday(&t1, NULL);
@@ -1057,22 +1071,29 @@ main( int argc, char ** argv )
     /* FILTER Timer stop */
     gettimeofday(&t2, NULL);
 
-    duration = (t2.tv_sec -t1.tv_sec)+((t2.tv_usec-t1.tv_usec)/1e6);
+    filter_duration = (t2.tv_sec -t1.tv_sec)+((t2.tv_usec-t1.tv_usec)/1e6);
 
-    printf( "SOBEL done in %lf s\n", duration ) ;
+    printf( "SOBEL done in %lf s\n", filter_duration ) ;
 
     /* EXPORT Timer start */
     gettimeofday(&t1, NULL);
 
     /* Store file from array of pixels to GIF file */
     if ( !store_pixels( output_filename, image ) ) { return 1 ; }
+    
 
     /* EXPORT Timer stop */
     gettimeofday(&t2, NULL);
 
-    duration = (t2.tv_sec -t1.tv_sec)+((t2.tv_usec-t1.tv_usec)/1e6);
+    export_duration = (t2.tv_sec -t1.tv_sec)+((t2.tv_usec-t1.tv_usec)/1e6);
 
-    printf( "Export done in %lf s in file %s\n", duration, output_filename ) ;
+    printf( "Export done in %lf s in file %s\n", export_duration, output_filename ) ;
+
+    /* Write durations to file */
+    fprintf(duration_file, "%s,%lf,%lf,%lf\n", input_filename, import_duration, filter_duration, export_duration);
+
+    /* Close the file */
+    fclose(duration_file);
 
     return 0 ;
 }
