@@ -69,6 +69,9 @@ load_pixels( char * filename )
     /* Grab the number of images and the size of each image */
     n_images = g->ImageCount ;
 
+    //load the images in parallel with OpenMP? 
+    // no need because heap memory is shared between threads
+
     width = (int *)malloc( n_images * sizeof( int ) ) ;
     if ( width == NULL )
     {
@@ -84,6 +87,10 @@ load_pixels( char * filename )
                 n_images ) ;
         return 0 ;
     }
+
+    // How to parallelize this loop to be faster during the allocation?
+    // 
+
 
     /* Fill the width and height */
     for ( i = 0 ; i < n_images ; i++ ) 
@@ -122,6 +129,8 @@ load_pixels( char * filename )
 #endif
 
     /* Allocate the array of pixels to be returned */
+    // Corresponds to a GIF : an array of images, each image is an array of pixels
+
     p = (pixel **)malloc( n_images * sizeof( pixel * ) ) ;
     if ( p == NULL )
     {
@@ -129,6 +138,8 @@ load_pixels( char * filename )
                 n_images ) ;
         return NULL ;
     }
+
+    // Parallelize this allocation?
 
     for ( i = 0 ; i < n_images ; i++ ) 
     {
@@ -144,6 +155,11 @@ load_pixels( char * filename )
     /* Fill pixels */
 
     /* For each image */
+    // Possibility to parallelize this
+    // Each image is independent from the others
+    // Each pixel is independent from the others
+
+    #pragma omp parallel for private(i) schedule(dynamic)
     for ( i = 0 ; i < n_images ; i++ )
     {
         int j ;
@@ -254,6 +270,7 @@ store_pixels( char * filename, animated_gif * image )
     }
 
     /* Everything is white by default */
+    #pragma omp parallel for private(i)
     for ( i = 0 ; i < 256 ; i++ ) 
     {
         colormap[i].Red = 255 ;
@@ -288,6 +305,13 @@ store_pixels( char * filename, animated_gif * image )
     image->g->SBackGroundColor = 0 ;
 
     n_colors++ ;
+
+
+
+
+
+
+
 
     /* Process extension blocks in main structure */
     for ( j = 0 ; j < image->g->ExtensionBlockCount ; j++ )
@@ -373,6 +397,19 @@ store_pixels( char * filename, animated_gif * image )
         }
     }
 
+
+
+
+
+
+
+
+
+
+
+
+    /* Process extension blocks in saved images */
+    #pragma omp parallel for private(i, j, k, moy) shared(image, colormap, n_colors)
     for ( i = 0 ; i < image->n_images ; i++ )
     {
         for ( j = 0 ; j < image->g->SavedImages[i].ExtensionBlockCount ; j++ )
@@ -384,20 +421,15 @@ store_pixels( char * filename, animated_gif * image )
             {
                 int tr_color = image->g->SavedImages[i].ExtensionBlocks[j].Bytes[3] ;
 
-                if ( tr_color >= 0 &&
-                        tr_color < 255 )
+                if ( tr_color >= 0 && tr_color < 255 )
                 {
-
                     int found = -1 ;
 
-                    moy = 
-                        (
-                         image->g->SColorMap->Colors[ tr_color ].Red
-                         +
-                         image->g->SColorMap->Colors[ tr_color ].Green
-                         +
-                         image->g->SColorMap->Colors[ tr_color ].Blue
-                        ) / 3 ;
+                    moy = (
+                        image->g->SColorMap->Colors[ tr_color ].Red +
+                        image->g->SColorMap->Colors[ tr_color ].Green +
+                        image->g->SColorMap->Colors[ tr_color ].Blue
+                    ) / 3 ;
                     if ( moy < 0 ) moy = 0 ;
                     if ( moy > 255 ) moy = 255 ;
 
@@ -413,40 +445,43 @@ store_pixels( char * filename, animated_gif * image )
                     for ( k = 0 ; k < n_colors ; k++ )
                     {
                         if ( 
-                                moy == colormap[k].Red
-                                &&
-                                moy == colormap[k].Green
-                                &&
-                                moy == colormap[k].Blue
-                           )
+                            moy == colormap[k].Red &&
+                            moy == colormap[k].Green &&
+                            moy == colormap[k].Blue
+                        )
                         {
                             found = k ;
+                            break ;
                         }
                     }
-                    if ( found == -1  ) 
+
+                    if ( found == -1 ) 
                     {
-                        if ( n_colors >= 256 ) 
+                        #pragma omp critical
                         {
-                            fprintf( stderr, 
-                                    "Error: Found too many colors inside the image\n"
-                                   ) ;
-                            return 0 ;
-                        }
+                            if ( n_colors >= 256 ) 
+                            {
+                                fprintf( stderr, 
+                                        "Error: Found too many colors inside the image\n"
+                                       ) ;
+                                return 0 ;
+                            }
 
 #if SOBELF_DEBUG
-                        printf( "[DEBUG]\tNew color %d\n",
-                                n_colors ) ;
+                            printf( "[DEBUG]\tNew color %d\n",
+                                    n_colors ) ;
 #endif
 
-                        colormap[n_colors].Red = moy ;
-                        colormap[n_colors].Green = moy ;
-                        colormap[n_colors].Blue = moy ;
+                            colormap[n_colors].Red = moy ;
+                            colormap[n_colors].Green = moy ;
+                            colormap[n_colors].Blue = moy ;
 
+                            image->g->SavedImages[i].ExtensionBlocks[j].Bytes[3] = n_colors ;
 
-                        image->g->SavedImages[i].ExtensionBlocks[j].Bytes[3] = n_colors ;
-
-                        n_colors++ ;
-                    } else
+                            n_colors++ ;
+                        }
+                    } 
+                    else
                     {
 #if SOBELF_DEBUG
                         printf( "[DEBUG]\tFound existing color %d\n",
@@ -459,14 +494,120 @@ store_pixels( char * filename, animated_gif * image )
         }
     }
 
+
+
+
+
+
+
+
+
+        /* Process extension blocks in saved images */
+    #pragma omp parallel for private(i, j, k, moy) shared(image, colormap, n_colors)
+    for ( i = 0 ; i < image->n_images ; i++ )
+    {
+        for ( j = 0 ; j < image->g->SavedImages[i].ExtensionBlockCount ; j++ )
+        {
+            int f ;
+
+            f = image->g->SavedImages[i].ExtensionBlocks[j].Function ;
+            if ( f == GRAPHICS_EXT_FUNC_CODE )
+            {
+                int tr_color = image->g->SavedImages[i].ExtensionBlocks[j].Bytes[3] ;
+
+                if ( tr_color >= 0 && tr_color < 255 )
+                {
+                    int found = -1 ;
+
+                    moy = (
+                        image->g->SColorMap->Colors[ tr_color ].Red +
+                        image->g->SColorMap->Colors[ tr_color ].Green +
+                        image->g->SColorMap->Colors[ tr_color ].Blue
+                    ) / 3 ;
+                    if ( moy < 0 ) moy = 0 ;
+                    if ( moy > 255 ) moy = 255 ;
+
+    #if SOBELF_DEBUG
+                    printf( "[DEBUG] Transparency color image %d (%d,%d,%d) -> (%d,%d,%d)\n",
+                            i,
+                            image->g->SColorMap->Colors[ tr_color ].Red,
+                            image->g->SColorMap->Colors[ tr_color ].Green,
+                            image->g->SColorMap->Colors[ tr_color ].Blue,
+                            moy, moy, moy ) ;
+    #endif
+
+                    for ( k = 0 ; k < n_colors ; k++ )
+                    {
+                        if ( 
+                            moy == colormap[k].Red &&
+                            moy == colormap[k].Green &&
+                            moy == colormap[k].Blue
+                        )
+                        {
+                            found = k ;
+                            break ;
+                        }
+                    }
+
+                    if ( found == -1 ) 
+                    {
+                        #pragma omp critical
+                        {
+                            if ( n_colors >= 256 ) 
+                            {
+                                fprintf( stderr, 
+                                        "Error: Found too many colors inside the image\n"
+                                    ) ;
+                                return 0 ;
+                            }
+
+    #if SOBELF_DEBUG
+                            printf( "[DEBUG]\tNew color %d\n",
+                                    n_colors ) ;
+    #endif
+
+                            colormap[n_colors].Red = moy ;
+                            colormap[n_colors].Green = moy ;
+                            colormap[n_colors].Blue = moy ;
+
+                            image->g->SavedImages[i].ExtensionBlocks[j].Bytes[3] = n_colors ;
+
+                            n_colors++ ;
+                        }
+                    } 
+                    else
+                    {
+    #if SOBELF_DEBUG
+                        printf( "[DEBUG]\tFound existing color %d\n",
+                                found ) ;
+    #endif
+                        image->g->SavedImages[i].ExtensionBlocks[j].Bytes[3] = found ;
+                    }
+                }
+            }
+        }
+    }
+
 #if SOBELF_DEBUG
     printf( "[DEBUG] Number of colors after background and transparency: %d\n",
             n_colors ) ;
 #endif
 
+
+
+
+
+
+
+
+
+
+
+
     p = image->p ;
 
     /* Find the number of colors inside the image */
+    #pragma omp parallel for collapse(2) private(i,j,k) 
     for ( i = 0 ; i < image->n_images ; i++ )
     {
 
@@ -485,28 +626,32 @@ store_pixels( char * filename, animated_gif * image )
                         p[i][j].b == colormap[k].Blue )
                 {
                     found = 1 ;
+                    break ;
                 }
             }
 
             if ( found == 0 ) 
             {
-                if ( n_colors >= 256 ) 
+                #pragma omp critical
                 {
-                    fprintf( stderr, 
-                            "Error: Found too many colors inside the image\n"
-                           ) ;
-                    return 0 ;
+                    if ( n_colors >= 256 ) 
+                    {
+                        fprintf( stderr, 
+                                "Error: Found too many colors inside the image\n"
+                            ) ;
+                        return 0 ;
+                    }
+
+    #if SOBELF_DEBUG
+                    printf( "[DEBUG] Found new %d color (%d,%d,%d)\n",
+                            n_colors, p[i][j].r, p[i][j].g, p[i][j].b ) ;
+    #endif
+
+                    colormap[n_colors].Red = p[i][j].r ;
+                    colormap[n_colors].Green = p[i][j].g ;
+                    colormap[n_colors].Blue = p[i][j].b ;
+                    n_colors++ ;
                 }
-
-#if SOBELF_DEBUG
-                printf( "[DEBUG] Found new %d color (%d,%d,%d)\n",
-                        n_colors, p[i][j].r, p[i][j].g, p[i][j].b ) ;
-#endif
-
-                colormap[n_colors].Red = p[i][j].r ;
-                colormap[n_colors].Green = p[i][j].g ;
-                colormap[n_colors].Blue = p[i][j].b ;
-                n_colors++ ;
             }
         }
     }
@@ -537,9 +682,15 @@ store_pixels( char * filename, animated_gif * image )
         return 0 ;
     }
 
+
+
+
+
+
     image->g->SColorMap = cmo ;
 
     /* Update the raster bits according to color map */
+    #pragma omp parallel for collapse (2) private(i,j,k) shared(image, p, n_colors)
     for ( i = 0 ; i < image->n_images ; i++ )
     {
         for ( j = 0 ; j < image->width[i] * image->height[i] ; j++ ) 
@@ -552,9 +703,11 @@ store_pixels( char * filename, animated_gif * image )
                         p[i][j].b == image->g->SColorMap->Colors[k].Blue )
                 {
                     found_index = k ;
+                    // break ; // found the color? 
                 }
             }
 
+            #pragma omp critical
             if ( found_index == -1 ) 
             {
                 fprintf( stderr,
@@ -572,6 +725,17 @@ store_pixels( char * filename, animated_gif * image )
 
     return 1 ;
 }
+
+
+
+
+
+
+
+
+
+
+
 
 void
 apply_gray_filter( animated_gif * image )
@@ -871,6 +1035,7 @@ main( int argc, char ** argv )
     gettimeofday(&t1, NULL);
 
     /* Load file and store the pixels in array */
+    // can be parallelized
     image = load_pixels( input_filename ) ;
     if ( image == NULL ) { return 1 ; }
 
