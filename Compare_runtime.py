@@ -1,24 +1,41 @@
 import csv
+import os
 from termcolor import colored
 
-def read_csv(file_path):
+def read_csv(file_path, is_parallel=False):
     data = {}
     with open(file_path, mode='r') as file:
         reader = csv.DictReader(file)
         for row in reader:
-            data[row['Filename']] = {
-                'Import Duration': float(row['Import Duration']),
-                'Gray Filter Duration': float(row['Gray Filter Duration']),
-                'Blur Filter Duration': float(row['Blur Filter Duration']),
-                'Sobel Filter Duration': float(row['Sobel Filter Duration']),
-                'Export Duration': float(row['Export Duration'])
-            }
+            if is_parallel:
+                data[row['Filename']] = {
+                    'Parallelization Type': row['Parallelization Type'],
+                    'Number Images': int(row['Number Images']),
+                    'Number Pixels': int(row['Number Pixels']),
+                    'Import Duration': float(row['Import Duration']),
+                    'Gray Filter Duration': float(row['Gray Filter Duration']),
+                    'Blur Filter Duration': float(row['Blur Filter Duration']),
+                    'Sobel Filter Duration': float(row['Sobel Filter Duration']),
+                    'Export Duration': float(row['Export Duration'])
+                }
+            else:
+                data[row['Filename']] = {
+                    'Import Duration': float(row['Import Duration']),
+                    'Gray Filter Duration': float(row['Gray Filter Duration']),
+                    'Blur Filter Duration': float(row['Blur Filter Duration']),
+                    'Sobel Filter Duration': float(row['Sobel Filter Duration']),
+                    'Export Duration': float(row['Export Duration'])
+                }
     return data
 
 def compare_durations(seq_data, para_data):
     for filename in seq_data:
         if filename in para_data:
-            print(f"Comparing {filename}:")
+            basename = os.path.basename(filename)
+            num_images = para_data[filename]['Number Images']
+            num_pixels = para_data[filename]['Number Pixels']
+            parallelization_type = para_data[filename]['Parallelization Type']
+            print(f"\n Comparing {basename} (Images: {num_images}, Pixels: {num_pixels}, Parallelization: {parallelization_type}):")
             for key in ["Import Duration", "Gray Filter Duration", "Blur Filter Duration", "Sobel Filter Duration", "Export Duration"]:
                 seq_duration = seq_data[filename][key]
                 para_duration = para_data[filename][key]
@@ -34,6 +51,6 @@ if __name__ == "__main__":
     para_file = 'durations_para.csv'
 
     seq_data = read_csv(seq_file)
-    para_data = read_csv(para_file)
+    para_data = read_csv(para_file, is_parallel=True)
 
     compare_durations(seq_data, para_data)

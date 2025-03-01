@@ -311,7 +311,7 @@ output_modified_read_gif( char * filename, GifFileType * g )
 
 //// Parallel version of store_pixels
 int
-store_pixels( char * filename, animated_gif * image )
+store_pixels( char * filename, animated_gif * image, int parallelization_type )
 {
     int n_colors = 0 ;
     pixel ** p ;
@@ -691,8 +691,8 @@ void apply_gray_filter(animated_gif *image, int parallelization_type)
     }
     else if (parallelization_type == 2) { // Parallelize on the number of pixels
         // Parallelize the inner loop on pixels
-        #pragma omp parallel for shared(image, p) schedule(guided)
         for (i = 0; i < image->n_images; i++) {
+            #pragma omp parallel for shared(image, p) schedule(guided)
             for (j = 0; j < image->width[i] * image->height[i]; j++) {
                 int moy;
                 moy = (p[i][j].r + p[i][j].g + p[i][j].b) / 3;
@@ -724,34 +724,6 @@ void apply_gray_filter(animated_gif *image, int parallelization_type)
 
 
 
-
-// ////// First Parallel version
-// void
-// apply_gray_filter( animated_gif * image )
-// {
-//     int i, j ;
-//     pixel ** p ;
-
-//     p = image->p ;
-
-//     // #pragma omp parallel for shared(image, p) schedule(dynamic) private(j) if (image->n_images >= 2) //i est automatiquement considéré comme privé
-//     for ( i = 0 ; i < image->n_images ; i++ )
-//     {
-//         #pragma omp parallel for schedule(guided) if(image->width[i] * image->height[i] >= 1000)
-//         for ( j = 0 ; j < image->width[i] * image->height[i] ; j++ )
-//         {
-//             int moy ;
-
-//             moy = (p[i][j].r + p[i][j].g + p[i][j].b)/3 ;
-//             if ( moy < 0 ) moy = 0 ;
-//             if ( moy > 255 ) moy = 255 ;
-
-//             p[i][j].r = moy ;
-//             p[i][j].g = moy ;
-//             p[i][j].b = moy ;
-//         }
-//     }
-// }
 
 #define CONV(l,c,nb_c) \
     (l)*(nb_c)+(c)
@@ -794,9 +766,6 @@ apply_blur_filter( animated_gif * image, int size, int threshold, int paralleliz
     /* Get the pixels of all images */
     p = image->p ;
 
-
-    ///// Easier to try to parallelize the images first
-    ///// works well on a gif with many images
     /* Process all images */
 
     //// Parallelize on the images
@@ -901,7 +870,7 @@ apply_blur_filter( animated_gif * image, int size, int threshold, int paralleliz
                 //// Potential race issue as we acces p[i] on multiple threads?
                 //// Actually no as CONV is bijective
                 //// works well on large images
-                ////doesn't work if I try to parallelize the "image"
+                ////doesn't work if I try to parallelize the "image" as well
 
                 for(j=1; j<height-1; j++)
                 {
@@ -1239,11 +1208,6 @@ apply_blur_filter( animated_gif * image, int size, int threshold, int paralleliz
 
 
 
-
-
-
-
-
 //// Parallel version
 void
 apply_sobel_filter( animated_gif * image, int parallelization_type)
@@ -1460,6 +1424,15 @@ apply_sobel_filter( animated_gif * image, int parallelization_type)
     }
 }
 
+
+
+
+
+
+
+
+
+
 /*
  * Main entry point
  */
@@ -1491,7 +1464,7 @@ int main( int argc, char ** argv )
     /* Check if the file is empty to write the header */
     fseek(duration_file, 0, SEEK_END);
     if (ftell(duration_file) == 0) {
-        fprintf(duration_file, "Filename,Parallelization Type,Import Duration,Gray Filter Duration,Blur Filter Duration,Sobel Filter Duration,Export Duration\n");
+        fprintf(duration_file, "Filename,Parallelization Type,Number Images,Number Pixels,Import Duration,Gray Filter Duration,Blur Filter Duration,Sobel Filter Duration,Export Duration\n");
     }
     fseek(duration_file, 0, SEEK_END);
 
@@ -1533,9 +1506,12 @@ int main( int argc, char ** argv )
         parallelization_type = NO_PARALLELIZATION;
     }
 
-    printf("Nombre d'images: %d\n", image->n_images);
-    printf("Nombre de pixels: %d\n", image->width[0] * image->height[0]);
-    printf("Parallelization type: %d\n", parallelization_type);
+    int nb_images = image->n_images;
+    int nb_pixels = image->width[0] * image->height[0];
+
+    // printf("Nombre d'images: %d\n", image->n_images);
+    // printf("Nombre de pixels: %d\n", image->width[0] * image->height[0]);
+    // printf("Parallelization type: %d\n", parallelization_type);
 
 
 
@@ -1592,7 +1568,7 @@ int main( int argc, char ** argv )
 #endif
 
     /* Write durations to file */
-    fprintf(duration_file, "%s,%d,%lf,%lf,%lf,%lf,%lf\n", input_filename, parallelization_type, import_duration, gray_duration, blur_duration, sobel_duration, export_duration);
+    fprintf(duration_file, "%s,%d,%d, %d, %lf,%lf,%lf,%lf,%lf\n", input_filename, parallelization_type, nb_images, nb_pixels, import_duration, gray_duration, blur_duration, sobel_duration, export_duration);
 
     /* Close the file */
     fclose(duration_file);

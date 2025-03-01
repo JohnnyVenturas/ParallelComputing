@@ -30,7 +30,9 @@ mkdir $OUTPUT_DIR 2>/dev/null
 
 for i in $INPUT_DIR/*gif ; do
     DEST=$OUTPUT_DIR/`basename $i .gif`-sobel-para.gif
-    echo "Running test on $i -> $DEST"
+    FILENAME=$(basename $i)
+    FILEDEST=$(basename $DEST)
+    echo -e "\nProcessing $FILENAME -> $FILEDEST"
 
     ./sobelf_para $i $DEST
 done

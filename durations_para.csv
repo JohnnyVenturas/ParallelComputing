@@ -1,16 +1,16 @@
-Filename,Parallelization Type,Import Duration,Gray Filter Duration,Blur Filter Duration,Sobel Filter Duration,Export Duration
-images/original/051009.vince.gif,2,0.028783,0.003777,0.019137,0.001632,0.125839
-images/original/1.gif,1,0.014118,0.000663,0.027187,0.002354,0.109118
-images/original/200_s.gif,2,0.000757,0.000419,0.000151,0.000068,0.002340
-images/original/9815573.gif,1,0.008294,0.000276,0.010390,0.000940,0.057662
-images/original/australian-flag-large.gif,2,0.004225,0.000694,0.012556,0.000891,0.013237
-images/original/Campusplan-Hausnr.gif,2,0.273769,0.087106,0.875261,0.094554,0.369983
-images/original/Campusplan-Mobilitaetsbeschraenkte.gif,2,0.268923,0.085420,0.872306,0.091797,0.973540
-images/original/fire.gif,1,0.001140,0.000012,0.000127,0.000033,0.002536
-images/original/frame_002.gif,2,0.002411,0.000245,0.001273,0.000556,0.004861
-images/original/giphy-3.gif,2,0.064399,0.005516,0.087066,0.010149,0.579316
-images/original/Mandelbrot-large.gif,1,0.123937,0.013248,0.171624,0.028292,1.304525
-images/original/porsche.gif,2,0.001536,0.000063,0.000448,0.000109,0.002296
-images/original/Produits_sous_linux.gif,2,0.004533,0.000772,0.007511,0.001068,0.006624
-images/original/TimelyHugeGnu.gif,1,0.037787,0.002093,0.019050,0.003608,0.268477
-images/original/tumblr_myxlbtwVEb1qzt4vjo1_r14_500_large.gif,1,0.013932,0.001276,0.022687,0.002519,0.262664
+Filename,Parallelization Type,Number Images,Number Pixels,Import Duration,Gray Filter Duration,Blur Filter Duration,Sobel Filter Duration,Export Duration
+images/original/051009.vince.gif,2,1, 1354892, 0.022217,0.000379,0.018822,0.001814,0.124489
+images/original/1.gif,1,10, 250000, 0.013974,0.001442,0.025938,0.002739,0.110175
+images/original/200_s.gif,2,1, 40000, 0.001030,0.000390,0.000163,0.000085,0.001463
+images/original/9815573.gif,1,10, 140500, 0.010197,0.000283,0.012732,0.001107,0.059283
+images/original/australian-flag-large.gif,2,1, 720000, 0.004216,0.000132,0.011693,0.000936,0.016336
+images/original/Campusplan-Hausnr.gif,2,1, 69682912, 0.272628,0.035829,0.915738,0.096693,0.430052
+images/original/Campusplan-Mobilitaetsbeschraenkte.gif,2,1, 69689928, 0.266039,0.033474,0.926975,0.095767,1.000674
+images/original/fire.gif,1,33, 1800, 0.001452,0.000014,0.000429,0.000035,0.003241
+images/original/frame_002.gif,2,1, 263250, 0.002088,0.000047,0.001432,0.000450,0.006547
+images/original/giphy-3.gif,2,5, 2073600, 0.096554,0.004608,0.090933,0.011073,0.591959
+images/original/Mandelbrot-large.gif,1,20, 1440000, 0.144747,0.013144,0.172674,0.029875,1.309734
+images/original/porsche.gif,2,1, 64000, 0.001022,0.000016,0.000487,0.000110,0.001743
+images/original/Produits_sous_linux.gif,2,1, 760000, 0.005294,0.000150,0.010658,0.001122,0.010786
+images/original/TimelyHugeGnu.gif,1,19, 230400, 0.030427,0.001378,0.022659,0.003567,0.265780
+images/original/tumblr_myxlbtwVEb1qzt4vjo1_r14_500_large.gif,1,10, 230400, 0.015033,0.000565,0.025306,0.002296,0.261275
