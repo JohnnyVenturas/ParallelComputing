@@ -1556,7 +1556,7 @@ int main( int argc, char ** argv )
     gettimeofday(&t1, NULL);
 
     /* Store file from array of pixels to GIF file */
-    if ( !store_pixels( output_filename, image ) ) { return 1 ; }
+    if ( !store_pixels( output_filename, image, parallelization_type ) ) { return 1 ; }
 
     /* EXPORT Timer stop */
     gettimeofday(&t2, NULL);
