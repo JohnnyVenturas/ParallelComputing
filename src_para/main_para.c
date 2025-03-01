@@ -13,6 +13,9 @@
 /* Set this macro to 1 to enable debugging information */
 #define SOBELF_DEBUG 0
 
+/* Set this macro to 1 to print the time taken by each step */
+#define PRINT_TIME 0
+
 /* Represent one pixel from the image */
 typedef struct pixel
 {
@@ -667,7 +670,7 @@ store_pixels( char * filename, animated_gif * image )
 
 
 
-
+////// Parallel version
 void
 apply_gray_filter( animated_gif * image )
 {
@@ -676,8 +679,11 @@ apply_gray_filter( animated_gif * image )
 
     p = image->p ;
 
+    // We tried parallelizing on the pixels but it slowed down the process significantly.
+    // #pragma omp parallel for shared(image, p) schedule(dynamic) private(j) if (image->n_images >= 2) //i est automatiquement considéré comme privé
     for ( i = 0 ; i < image->n_images ; i++ )
     {
+        #pragma omp parallel for schedule(guided) if(image->width[i] * image->height[i] >= 1000)
         for ( j = 0 ; j < image->width[i] * image->height[i] ; j++ )
         {
             int moy ;
@@ -696,6 +702,7 @@ apply_gray_filter( animated_gif * image )
 #define CONV(l,c,nb_c) \
     (l)*(nb_c)+(c)
 
+///// Function not used in the main
 void apply_gray_line( animated_gif * image ) 
 {
     int i, j, k ;
@@ -703,6 +710,7 @@ void apply_gray_line( animated_gif * image )
 
     p = image->p ;
 
+    #pragma omp parallel for shared(image, p) schedule(dynamic) private(j, k) if (image->n_images >= 2) //i est automatiquement considéré comme privé
     for ( i = 0 ; i < image->n_images ; i++ )
     {
         for ( j = 0 ; j < 10 ; j++ )
@@ -717,6 +725,7 @@ void apply_gray_line( animated_gif * image )
     }
 }
 
+//// Parallel version
 void
 apply_blur_filter( animated_gif * image, int size, int threshold )
 {
@@ -726,13 +735,16 @@ apply_blur_filter( animated_gif * image, int size, int threshold )
     int n_iter = 0 ;
 
     pixel ** p ;
-    pixel * new ;
+    // new is declared inside the loop to avoid race conditions
 
     /* Get the pixels of all images */
     p = image->p ;
 
 
+    ///// Easier to try to parallelize the images first
+    ///// works well on a gi f with many images
     /* Process all images */
+    // #pragma omp parallel for private(j,k) shared(image, p)  if(image->n_images >= 2) 
     for ( i = 0 ; i < image->n_images ; i++ )
     {
         n_iter = 0 ;
@@ -740,7 +752,7 @@ apply_blur_filter( animated_gif * image, int size, int threshold )
         height = image->height[i] ;
 
         /* Allocate array of new pixels */
-        new = (pixel *)malloc(width * height * sizeof( pixel ) ) ;
+        pixel * new = (pixel *)malloc(width * height * sizeof( pixel ) ) ;
 
 
         /* Perform at least one blur iteration */
@@ -750,17 +762,19 @@ apply_blur_filter( animated_gif * image, int size, int threshold )
             n_iter++ ;
 
 
-	for(j=0; j<height-1; j++)
-	{
-		for(k=0; k<width-1; k++)
-		{
-			new[CONV(j,k,width)].r = p[i][CONV(j,k,width)].r ;
-			new[CONV(j,k,width)].g = p[i][CONV(j,k,width)].g ;
-			new[CONV(j,k,width)].b = p[i][CONV(j,k,width)].b ;
-		}
-	}
+            #pragma omp parallel for default(shared) collapse(2) private(j ,k) schedule(guided) if(height * width >= 1000)
+            for(j=0; j<height-1; j++)
+            {
+                for(k=0; k<width-1; k++)
+                {
+                    new[CONV(j,k,width)].r = p[i][CONV(j,k,width)].r ;
+                    new[CONV(j,k,width)].g = p[i][CONV(j,k,width)].g ;
+                    new[CONV(j,k,width)].b = p[i][CONV(j,k,width)].b ;
+                }
+            }
 
             /* Apply blur on top part of image (10%) */
+            #pragma omp parallel for default(shared) collapse(2) private(j,k) schedule(guided) if(height * width >= 1000)
             for(j=size; j<height/10-size; j++)
             {
                 for(k=size; k<width-size; k++)
@@ -787,17 +801,24 @@ apply_blur_filter( animated_gif * image, int size, int threshold )
             }
 
             /* Copy the middle part of the image */
-            for(j=height/10-size; j<height*0.9+size; j++)
-            {
-                for(k=size; k<width-size; k++)
-                {
-                    new[CONV(j,k,width)].r = p[i][CONV(j,k,width)].r ; 
-                    new[CONV(j,k,width)].g = p[i][CONV(j,k,width)].g ; 
-                    new[CONV(j,k,width)].b = p[i][CONV(j,k,width)].b ; 
+            // Pré-calcul des bornes avant la boucle
+            int start_row = height / 10 - size;
+            int end_row = (int)(height * 0.9 + size);  // On s'assure que c'est un entier
+            int start_col = size;
+            int end_col = width - size;
+
+            #pragma omp parallel for default(shared) private(j, k) collapse(2) schedule(guided, 16) if(height * width >= 1000)
+            for (j = start_row; j < end_row; j++) {
+                for (k = start_col; k < end_col; k++) {
+                    new[CONV(j, k, width)].r = p[i][CONV(j, k, width)].r;
+                    new[CONV(j, k, width)].g = p[i][CONV(j, k, width)].g;
+                    new[CONV(j, k, width)].b = p[i][CONV(j, k, width)].b;
                 }
             }
 
+
             /* Apply blur on the bottom part of the image (10%) */
+            #pragma omp parallel for default(shared) collapse(2) schedule(guided) if(height * width >= 1000)
             for(j=height*0.9+size; j<height-size; j++)
             {
                 for(k=size; k<width-size; k++)
@@ -823,6 +844,13 @@ apply_blur_filter( animated_gif * image, int size, int threshold )
                 }
             }
 
+            //// Parallelize this loop
+            //// Potential race issue as we acces p[i] on multiple threads?
+            //// Actually no as CONV is bijective
+            //// works well on large images
+            ////doesn't work if I try to parallelize the "image"
+
+            #pragma omp parallel for default(shared) private(j, k) collapse(2) schedule(guided) if(height * width >= 1000)
             for(j=1; j<height-1; j++)
             {
                 for(k=1; k<width-1; k++)
@@ -838,10 +866,10 @@ apply_blur_filter( animated_gif * image, int size, int threshold )
 
                     if ( diff_r > threshold || -diff_r > threshold 
                             ||
-                             diff_g > threshold || -diff_g > threshold
-                             ||
-                              diff_b > threshold || -diff_b > threshold
-                       ) {
+                                diff_g > threshold || -diff_g > threshold
+                                ||
+                                diff_b > threshold || -diff_b > threshold
+                        ) {
                         end = 0 ;
                     }
 
@@ -863,6 +891,7 @@ apply_blur_filter( animated_gif * image, int size, int threshold )
 
 }
 
+//// Parallel version
 void
 apply_sobel_filter( animated_gif * image )
 {
@@ -873,6 +902,7 @@ apply_sobel_filter( animated_gif * image )
 
     p = image->p ;
 
+    // #pragma omp parallel for private(j,k) shared(image, p) schedule(dynamic) if(image->n_images >= 2)
     for ( i = 0 ; i < image->n_images ; i++ )
     {
         width = image->width[i] ;
@@ -882,6 +912,7 @@ apply_sobel_filter( animated_gif * image )
 
         sobel = (pixel *)malloc(width * height * sizeof( pixel ) ) ;
 
+        #pragma omp parallel for default(shared) private(j, k) collapse(2) schedule(guided) if(height * width >= 1000)
         for(j=1; j<height-1; j++)
         {
             for(k=1; k<width-1; k++)
@@ -925,6 +956,7 @@ apply_sobel_filter( animated_gif * image )
             }
         }
 
+        #pragma omp parallel for default(shared) private(j, k) collapse(2) schedule(guided) if(height * width >= 1000)
         for(j=1; j<height-1; j++)
         {
             for(k=1; k<width-1; k++)
@@ -943,14 +975,13 @@ apply_sobel_filter( animated_gif * image )
 /*
  * Main entry point
  */
-int 
-main( int argc, char ** argv )
+int main( int argc, char ** argv )
 {
     char * input_filename ; 
     char * output_filename ;
     animated_gif * image ;
     struct timeval t1, t2;
-    double import_duration, filter_duration, export_duration;
+    double import_duration, gray_duration, blur_duration, sobel_duration, filter_duration, export_duration;
     FILE *duration_file;
 
     /* Check command-line arguments */
@@ -972,7 +1003,7 @@ main( int argc, char ** argv )
     /* Check if the file is empty to write the header */
     fseek(duration_file, 0, SEEK_END);
     if (ftell(duration_file) == 0) {
-        fprintf(duration_file, "Filename,Import Duration,Filter Duration,Export Duration\n");
+        fprintf(duration_file, "Filename,Import Duration,Gray Filter Duration,Blur Filter Duration,Sobel Filter Duration,Export Duration\n");
     }
     fseek(duration_file, 0, SEEK_END);
 
@@ -988,47 +1019,69 @@ main( int argc, char ** argv )
 
     import_duration = (t2.tv_sec -t1.tv_sec)+((t2.tv_usec-t1.tv_usec)/1e6);
 
+#if PRINT_TIME
     printf( "GIF loaded from file %s with %d image(s) in %lf s\n", 
             input_filename, image->n_images, import_duration ) ;
+#endif
 
     /* FILTER Timer start */
     gettimeofday(&t1, NULL);
 
-    /* Convert the pixels into grayscale */
+    /* Gray Filter Timer start */
+    gettimeofday(&t1, NULL);
     apply_gray_filter( image ) ;
+    gettimeofday(&t2, NULL);
+    gray_duration = (t2.tv_sec -t1.tv_sec)+((t2.tv_usec-t1.tv_usec)/1e6);
 
-    /* Apply blur filter with convergence value */
+#if PRINT_TIME
+    printf( "Gray filter done in %lf s\n", gray_duration );
+#endif
+
+    /* Blur Filter Timer start */
+    gettimeofday(&t1, NULL);
     apply_blur_filter( image, 5, 20 ) ;
+    gettimeofday(&t2, NULL);
+    blur_duration = (t2.tv_sec -t1.tv_sec)+((t2.tv_usec-t1.tv_usec)/1e6);
 
-    /* Apply sobel filter on pixels */
+#if PRINT_TIME
+    printf( "Blur filter done in %lf s\n", blur_duration );
+#endif
+
+    /* Sobel Filter Timer start */
+    gettimeofday(&t1, NULL);
     apply_sobel_filter( image ) ;
+    gettimeofday(&t2, NULL);
+    sobel_duration = (t2.tv_sec -t1.tv_sec)+((t2.tv_usec-t1.tv_usec)/1e6);
+
+#if PRINT_TIME
+    printf( "Sobel filter done in %lf s\n", sobel_duration );
+#endif
 
     /* FILTER Timer stop */
-    gettimeofday(&t2, NULL);
-
-    filter_duration = (t2.tv_sec -t1.tv_sec)+((t2.tv_usec-t1.tv_usec)/1e6);
-
-    printf( "SOBEL done in %lf s\n", filter_duration ) ;
+    filter_duration = gray_duration + blur_duration + sobel_duration;
+    printf( "Total filter time: %lf s\n", filter_duration );
 
     /* EXPORT Timer start */
     gettimeofday(&t1, NULL);
 
     /* Store file from array of pixels to GIF file */
     if ( !store_pixels( output_filename, image ) ) { return 1 ; }
-    
 
     /* EXPORT Timer stop */
     gettimeofday(&t2, NULL);
 
     export_duration = (t2.tv_sec -t1.tv_sec)+((t2.tv_usec-t1.tv_usec)/1e6);
 
+#if PRINT_TIME
     printf( "Export done in %lf s in file %s\n", export_duration, output_filename );
+#endif
 
-    /* À la fin, juste avant de fermer le fichier */
-    fprintf(duration_file, "%s,%lf,%lf,%lf\n", input_filename, import_duration, filter_duration, export_duration);
+    /* Write durations to file */
+    fprintf(duration_file, "%s,%lf,%lf,%lf,%lf,%lf\n", input_filename, import_duration, gray_duration, blur_duration, sobel_duration, export_duration);
 
     /* Close the file */
     fclose(duration_file);
 
     return 0 ;
 }
+

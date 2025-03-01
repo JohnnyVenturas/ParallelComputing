@@ -8,7 +8,9 @@ def read_csv(file_path):
         for row in reader:
             data[row['Filename']] = {
                 'Import Duration': float(row['Import Duration']),
-                'Filter Duration': float(row['Filter Duration']),
+                'Gray Filter Duration': float(row['Gray Filter Duration']),
+                'Blur Filter Duration': float(row['Blur Filter Duration']),
+                'Sobel Filter Duration': float(row['Sobel Filter Duration']),
                 'Export Duration': float(row['Export Duration'])
             }
     return data
@@ -17,7 +19,7 @@ def compare_durations(seq_data, para_data):
     for filename in seq_data:
         if filename in para_data:
             print(f"Comparing {filename}:")
-            for key in ['Import Duration', 'Filter Duration', 'Export Duration']:
+            for key in ["Import Duration", "Gray Filter Duration", "Blur Filter Duration", "Sobel Filter Duration", "Export Duration"]:
                 seq_duration = seq_data[filename][key]
                 para_duration = para_data[filename][key]
                 if para_duration < seq_duration:

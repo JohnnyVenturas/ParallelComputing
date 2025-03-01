@@ -1,16 +1,16 @@
-Filename,Import Duration,Filter Duration,Export Duration
-images/original/051009.vince.gif,0.022185,0.080289,0.125390
-images/original/1.gif,0.013795,0.107752,0.110538
-images/original/200_s.gif,0.001230,0.001090,0.002315
-images/original/9815573.gif,0.009882,0.045884,0.057515
-images/original/australian-flag-large.gif,0.004249,0.037847,0.013300
-images/original/Campusplan-Hausnr.gif,0.264739,4.367002,0.371951
-images/original/Campusplan-Mobilitaetsbeschraenkte.gif,0.265079,4.362128,0.950630
-images/original/fire.gif,0.001507,0.000591,0.002439
-images/original/frame_002.gif,0.002138,0.008084,0.002906
-images/original/giphy-3.gif,0.062720,0.459435,0.589391
-images/original/Mandelbrot-large.gif,0.120810,0.927136,1.291834
-images/original/porsche.gif,0.000828,0.001502,0.001752
-images/original/Produits_sous_linux.gif,0.005326,0.036162,0.006124
-images/original/TimelyHugeGnu.gif,0.034737,0.110382,0.267402
-images/original/tumblr_myxlbtwVEb1qzt4vjo1_r14_500_large.gif,0.012416,0.108886,0.260571
+Filename,Import Duration,Gray Filter Duration,Blur Filter Duration,Sobel Filter Duration,Export Duration
+images/original/051009.vince.gif,0.027839,0.000233,0.020729,0.001794,0.126663
+images/original/1.gif,0.015153,0.000515,0.028298,0.002446,0.111364
+images/original/200_s.gif,0.000704,0.000239,0.000178,0.000073,0.001936
+images/original/9815573.gif,0.009136,0.000297,0.015929,0.001400,0.057019
+images/original/australian-flag-large.gif,0.003439,0.000123,0.010279,0.000957,0.012822
+images/original/Campusplan-Hausnr.gif,0.309045,0.034862,0.904946,0.094857,0.404466
+images/original/Campusplan-Mobilitaetsbeschraenkte.gif,0.314063,0.034881,0.901476,0.099759,0.973622
+images/original/fire.gif,0.001094,0.000130,0.000480,0.000256,0.002799
+images/original/frame_002.gif,0.002164,0.000049,0.001139,0.000612,0.004156
+images/original/giphy-3.gif,0.071512,0.004965,0.093664,0.010429,0.593906
+images/original/Mandelbrot-large.gif,0.143195,0.013168,0.167928,0.024545,1.314221
+images/original/porsche.gif,0.001223,0.000017,0.000444,0.000110,0.002181
+images/original/Produits_sous_linux.gif,0.004371,0.000133,0.012194,0.000929,0.006257
+images/original/TimelyHugeGnu.gif,0.037117,0.001533,0.027892,0.004416,0.262039
+images/original/tumblr_myxlbtwVEb1qzt4vjo1_r14_500_large.gif,0.012086,0.000507,0.025856,0.002326,0.260659

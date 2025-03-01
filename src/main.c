@@ -13,6 +13,9 @@
 /* Set this macro to 1 to enable debugging information */
 #define SOBELF_DEBUG 0
 
+/* Set this macro to 1 to print the time taken by each step */
+#define PRINT_TIME 0
+
 /* Represent one pixel from the image */
 typedef struct pixel
 {
@@ -861,14 +864,13 @@ apply_sobel_filter( animated_gif * image )
 /*
  * Main entry point
  */
-int 
-main( int argc, char ** argv )
+int main( int argc, char ** argv )
 {
     char * input_filename ; 
     char * output_filename ;
     animated_gif * image ;
     struct timeval t1, t2;
-    double import_duration, filter_duration, export_duration;
+    double import_duration, gray_duration, blur_duration, sobel_duration, filter_duration, export_duration;
     FILE *duration_file;
 
     /* Check command-line arguments */
@@ -881,19 +883,18 @@ main( int argc, char ** argv )
     input_filename = argv[1] ;
     output_filename = argv[2] ;
 
-    /* Open the file to store durations */
     duration_file = fopen("durations_seq.csv", "a");
     if (duration_file == NULL) {
-        fprintf(stderr, "Error opening file to write durations\n");
+        perror("Erreur lors de l'ouverture du fichier");
         return 1;
     }
 
     /* Check if the file is empty to write the header */
     fseek(duration_file, 0, SEEK_END);
     if (ftell(duration_file) == 0) {
-        fprintf(duration_file, "Filename,Import Duration,Filter Duration,Export Duration\n");
+        fprintf(duration_file, "Filename,Import Duration,Gray Filter Duration,Blur Filter Duration,Sobel Filter Duration,Export Duration\n");
     }
-    fseek(duration_file, 0, SEEK_SET);
+    fseek(duration_file, 0, SEEK_END);
 
     /* IMPORT Timer start */
     gettimeofday(&t1, NULL);
@@ -907,27 +908,47 @@ main( int argc, char ** argv )
 
     import_duration = (t2.tv_sec -t1.tv_sec)+((t2.tv_usec-t1.tv_usec)/1e6);
 
+#if PRINT_TIME
     printf( "GIF loaded from file %s with %d image(s) in %lf s\n", 
             input_filename, image->n_images, import_duration ) ;
+#endif
 
     /* FILTER Timer start */
     gettimeofday(&t1, NULL);
 
-    /* Convert the pixels into grayscale */
+    /* Gray Filter Timer start */
+    gettimeofday(&t1, NULL);
     apply_gray_filter( image ) ;
+    gettimeofday(&t2, NULL);
+    gray_duration = (t2.tv_sec -t1.tv_sec)+((t2.tv_usec-t1.tv_usec)/1e6);
 
-    /* Apply blur filter with convergence value */
+#if PRINT_TIME
+    printf( "Gray filter done in %lf s\n", gray_duration );
+#endif
+
+    /* Blur Filter Timer start */
+    gettimeofday(&t1, NULL);
     apply_blur_filter( image, 5, 20 ) ;
+    gettimeofday(&t2, NULL);
+    blur_duration = (t2.tv_sec -t1.tv_sec)+((t2.tv_usec-t1.tv_usec)/1e6);
 
-    /* Apply sobel filter on pixels */
+#if PRINT_TIME
+    printf( "Blur filter done in %lf s\n", blur_duration );
+#endif
+
+    /* Sobel Filter Timer start */
+    gettimeofday(&t1, NULL);
     apply_sobel_filter( image ) ;
+    gettimeofday(&t2, NULL);
+    sobel_duration = (t2.tv_sec -t1.tv_sec)+((t2.tv_usec-t1.tv_usec)/1e6);
+
+#if PRINT_TIME
+    printf( "Sobel filter done in %lf s\n", sobel_duration );
+#endif
 
     /* FILTER Timer stop */
-    gettimeofday(&t2, NULL);
-
-    filter_duration = (t2.tv_sec -t1.tv_sec)+((t2.tv_usec-t1.tv_usec)/1e6);
-
-    printf( "SOBEL done in %lf s\n", filter_duration ) ;
+    filter_duration = gray_duration + blur_duration + sobel_duration;
+    printf( "Total filter time: %lf s\n", filter_duration );
 
     /* EXPORT Timer start */
     gettimeofday(&t1, NULL);
@@ -940,10 +961,12 @@ main( int argc, char ** argv )
 
     export_duration = (t2.tv_sec -t1.tv_sec)+((t2.tv_usec-t1.tv_usec)/1e6);
 
-    printf( "Export done in %lf s in file %s\n", export_duration, output_filename ) ;
+#if PRINT_TIME
+    printf( "Export done in %lf s in file %s\n", export_duration, output_filename );
+#endif
 
     /* Write durations to file */
-    fprintf(duration_file, "%s,%lf,%lf,%lf\n", input_filename, import_duration, filter_duration, export_duration);
+    fprintf(duration_file, "%s,%lf,%lf,%lf,%lf,%lf\n", input_filename, import_duration, gray_duration, blur_duration, sobel_duration, export_duration);
 
     /* Close the file */
     fclose(duration_file);
