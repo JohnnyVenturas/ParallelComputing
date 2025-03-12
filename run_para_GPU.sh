@@ -1,29 +1,24 @@
 #!/bin/bash
 
 # This script runs the parallelized version of the sobel filter on all images in the images/original directory
-# and saves the results in the images/parallelized directory.
-# The number of threads to use is passed as an argument to the script.
+# and saves the results in the images/processed_parallelized_GPU directory.
+# The script also compares the results with the baseline and prints the results.
 
-if [ -z "$1" ]; then
-    echo "Usage: $0 <num_threads>"
-    exit 1
-fi
+# Set the CUDA path
 
-export OMP_NUM_THREADS=$1
-echo -e "\n Running with $OMP_NUM_THREADS threads \n"
 
 # Set the project directory
 export PROJECT_DIRECTORY=$(pwd)
 echo -e "Project directory set to $PROJECT_DIRECTORY \n"
 
-make -f Makefile_para
+make -f Makefile_para_GPU
 
 INPUT_DIR=images/original
-OUTPUT_DIR=images/processed_parallelized
+OUTPUT_DIR=images/processed_parallelized_GPU
 mkdir $OUTPUT_DIR 2>/dev/null
 
 # Clean the durations_para.csv file
-> durations_para.csv
+> durations_para_GPU.csv
 
 # possible to parallelize the following loop?
 
@@ -41,9 +36,9 @@ done
 echo -e "\nResults check:"
 echo "=============="
 echo -e "Baseline:./images/baseline_result"
-echo -e "Processed:./images/processed_parallelized"
+echo -e "Processed:./images/processed_parallelized_GPU"
 echo ""
-./check images/processed_parallelized
+./check images/processed_parallelized_GPU
 
 
 # Printing the results

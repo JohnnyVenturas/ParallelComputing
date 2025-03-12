@@ -1,3 +1,5 @@
+#### Description: This script reads the durations from the sequential and parallel versions of the program and compares them.
+
 import csv
 import os
 from termcolor import colored
@@ -9,7 +11,6 @@ def read_csv(file_path, is_parallel=False):
         for row in reader:
             if is_parallel:
                 data[row['Filename']] = {
-                    'Parallelization Type': row['Parallelization Type'],
                     'Number Images': int(row['Number Images']),
                     'Number Pixels': int(row['Number Pixels']),
                     'Import Duration': float(row['Import Duration']),
@@ -34,8 +35,7 @@ def compare_durations(seq_data, para_data):
             basename = os.path.basename(filename)
             num_images = para_data[filename]['Number Images']
             num_pixels = para_data[filename]['Number Pixels']
-            parallelization_type = para_data[filename]['Parallelization Type']
-            print(f"\n Comparing {basename} (Images: {num_images}, Pixels: {num_pixels}, Parallelization: {parallelization_type}):")
+            print(f"\n Comparing {basename} (Images: {num_images}, Pixels: {num_pixels}):")
             for key in ["Import Duration", "Gray Filter Duration", "Blur Filter Duration", "Sobel Filter Duration", "Export Duration"]:
                 seq_duration = seq_data[filename][key]
                 para_duration = para_data[filename][key]
@@ -48,7 +48,7 @@ def compare_durations(seq_data, para_data):
 
 if __name__ == "__main__":
     seq_file = 'durations_seq.csv'
-    para_file = 'durations_para.csv'
+    para_file = 'durations_para_GPU.csv'
 
     seq_data = read_csv(seq_file)
     para_data = read_csv(para_file, is_parallel=True)
