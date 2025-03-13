@@ -636,10 +636,128 @@ store_pixels( char * filename, animated_gif * image )
 
 
 
+__global__ void gray_filter_kernel(pixel *d_pixels, int width, int height, int total_pixels) {
+    int idx = blockIdx.x * blockDim.x + threadIdx.x ;
+
+    //no out of bounds
+    if (idx < total_pixels) {
+        int moy = (d_pixels[idx].r + d_pixels[idx].g + d_pixels[idx].b)/3 ;
+
+        // clamp
+        if (moy < 0) moy = 0;
+        if (moy > 255) moy = 255 ;
+
+        // update pixel
+        d_pixels[idx].r = moy ;
+        d_pixels[idx].g = moy ;
+        d_pixels[idx].b = moy ;
+    }
+}
+
+
+void apply_gray_filter_gpu(animated_gif *image){
+    pixel **p = image->p ;
+
+    //process each image
+    for (int i = 0; i< image->n_images; i++) {
+        int width = image->width[i];
+        int height = image->height[i];
+        int total_pixels = width * height;
+
+        // mem on runtime
+        pixel *d_pixels;
+        cudaMalloc(&d_pixels, total_pixels * sizeof(pixel));
+
+        // transfer data
+        cudaMemcpy(d_pixels, p[i], total_pixels * sizeof(pixel), cudaMemcpyHostToDevice);
+
+        // setup CUDA kernel
+        int threadsPerBlock = 256;
+        int blocksPerGrid = (total_pixels + threadsPerBlock - 1) / threadsPerBlock; // technique to round up 
+
+        // call kernel
+        gray_filter_kernel<<<blocksPerGrid, threadsPerBlock>>>(d_pixels, width, height, total_pixels);
+
+        // wait for GPU to finish
+        cudaDeviceSynchronize(); // ensures all GPU operations are done
+
+        // transfer back data
+        cudaMemcpy(p[i], d_pixels, total_pixels * sizeof(pixel), cudaMemcpyDeviceToHost);
+
+        // free GPU mem
+        cudaFree(d_pixels);
+
+    }
+}
 
 
 
 
+void apply_gray_filter_gpu_batch(animated_gif *image) {
+    pixel **p = image->p;
+    
+    // Calculate total size for all images
+    int total_images = image->n_images;
+    size_t total_bytes = 0;
+    for (int i = 0; i < total_images; i++) {
+        total_bytes += image->width[i] * image->height[i] * sizeof(pixel);
+    }
+    
+    // Create a single buffer for all images
+    char *h_buffer = (char *)malloc(total_bytes);
+    if (!h_buffer) {
+        fprintf(stderr, "Failed to allocate host memory\n");
+        return;
+    }
+    
+    // Create offsets for each image in the buffer
+    size_t *offsets = (size_t *)malloc(total_images * sizeof(size_t));
+    size_t *sizes = (size_t *)malloc(total_images * sizeof(size_t));
+    size_t current_offset = 0;
+    
+    for (int i = 0; i < total_images; i++) {
+        offsets[i] = current_offset;
+        sizes[i] = image->width[i] * image->height[i] * sizeof(pixel);
+        memcpy(h_buffer + current_offset, p[i], sizes[i]);
+        current_offset += sizes[i];
+    }
+    
+    // Allocate GPU memory and copy all data at once
+    char *d_buffer;
+    cudaMalloc(&d_buffer, total_bytes);
+    cudaMemcpy(d_buffer, h_buffer, total_bytes, cudaMemcpyHostToDevice);
+    
+    // Launch kernel for each image
+    for (int i = 0; i < total_images; i++) {
+        int total_pixels = image->width[i] * image->height[i];
+        int threadsPerBlock = 256;
+        int blocksPerGrid = (total_pixels + threadsPerBlock - 1) / threadsPerBlock;
+        
+        gray_filter_kernel<<<blocksPerGrid, threadsPerBlock>>>(
+            (pixel *)(d_buffer + offsets[i]), 
+            image->width[i], 
+            image->height[i], 
+            total_pixels
+        );
+    }
+    
+    // Wait for all operations to complete
+    cudaDeviceSynchronize();
+    
+    // Copy results back
+    cudaMemcpy(h_buffer, d_buffer, total_bytes, cudaMemcpyDeviceToHost);
+    
+    // Copy results back to original structure
+    for (int i = 0; i < total_images; i++) {
+        memcpy(p[i], h_buffer + offsets[i], sizes[i]);
+    }
+    
+    // Free resources
+    cudaFree(d_buffer);
+    free(h_buffer);
+    free(offsets);
+    free(sizes);
+}
 
 
 ///////////// Possibility to parallelize this function ///////////////////
@@ -872,6 +990,330 @@ apply_blur_filter( animated_gif * image, int size, int threshold )
 
 
 
+// CUDA kernel for blurring the top and bottom parts of the image
+__global__ void blur_kernel(pixel* d_pixels, pixel* d_new_pixels, int width, int height, 
+    int size, int region_start, int region_end) {
+    int col = blockIdx.x * blockDim.x + threadIdx.x;
+    int row = blockIdx.y * blockDim.y + threadIdx.y;
+
+    // Check if this thread is within the image boundaries and the specified region
+    if (col >= size && col < width - size && row >= region_start && row < region_end) {
+        int t_r = 0;
+        int t_g = 0;
+        int t_b = 0;
+
+        // Apply the blur stencil
+        for (int stencil_j = -size; stencil_j <= size; stencil_j++) {
+            for (int stencil_k = -size; stencil_k <= size; stencil_k++) {
+            int idx = CONV(row + stencil_j, col + stencil_k, width);
+            t_r += d_pixels[idx].r;
+            t_g += d_pixels[idx].g;
+            t_b += d_pixels[idx].b;
+            }
+        }
+
+        // Calculate average and store in new pixels
+        int total_pixels = (2 * size + 1) * (2 * size + 1);
+        d_new_pixels[CONV(row, col, width)].r = t_r / total_pixels;
+        d_new_pixels[CONV(row, col, width)].g = t_g / total_pixels;
+        d_new_pixels[CONV(row, col, width)].b = t_b / total_pixels;
+    }
+}
+
+// CUDA kernel for copying the original pixel values (for non-blurred regions)
+__global__ void copy_kernel(pixel* d_pixels, pixel* d_new_pixels, int width, int height, 
+    int region_start, int region_end) {
+    int col = blockIdx.x * blockDim.x + threadIdx.x;
+    int row = blockIdx.y * blockDim.y + threadIdx.y;
+
+    // Check if this thread is within the image boundaries and the specified region
+    if (col >= 0 && col < width && row >= region_start && row < region_end) {
+        int idx = CONV(row, col, width);
+        d_new_pixels[idx].r = d_pixels[idx].r;
+        d_new_pixels[idx].g = d_pixels[idx].g;
+        d_new_pixels[idx].b = d_pixels[idx].b;
+    }
+}
+
+// CUDA kernel to check if we need more iterations
+__global__ void check_threshold_kernel(pixel* d_pixels, pixel* d_new_pixels, int width, int height, 
+               int threshold, int* d_end) {
+    int col = blockIdx.x * blockDim.x + threadIdx.x;
+    int row = blockIdx.y * blockDim.y + threadIdx.y;
+
+    // Check if this thread is within the valid image boundaries
+    if (col >= 1 && col < width - 1 && row >= 1 && row < height - 1) {
+        int idx = CONV(row, col, width);
+
+        float diff_r = d_new_pixels[idx].r - d_pixels[idx].r;
+        float diff_g = d_new_pixels[idx].g - d_pixels[idx].g;
+        float diff_b = d_new_pixels[idx].b - d_pixels[idx].b;
+
+        if (diff_r > threshold || -diff_r > threshold ||
+            diff_g > threshold || -diff_g > threshold ||
+            diff_b > threshold || -diff_b > threshold) {
+            *d_end = 0;
+        }
+
+        // Also update the original pixels with new values
+        d_pixels[idx].r = d_new_pixels[idx].r;
+        d_pixels[idx].g = d_new_pixels[idx].g;
+        d_pixels[idx].b = d_new_pixels[idx].b;
+    }
+}
+
+// The main function that will replace apply_blur_filter
+void apply_blur_filter_gpu(animated_gif* image, int size, int threshold) {
+    pixel** p = image->p;
+
+    // Process all images
+    for (int i = 0; i < image->n_images; i++) {
+        int width = image->width[i];
+        int height = image->height[i];
+        int total_pixels = width * height;
+        int n_iter = 0;
+
+        // Allocate memory on the host and device
+        pixel* new_pixels = (pixel*)malloc(total_pixels * sizeof(pixel));
+
+        pixel* d_pixels;
+        pixel* d_new_pixels;
+        int* d_end;
+
+        cudaMalloc(&d_pixels, total_pixels * sizeof(pixel));
+        cudaMalloc(&d_new_pixels, total_pixels * sizeof(pixel));
+        cudaMalloc(&d_end, sizeof(int));
+
+        // Copy image data to the device
+        cudaMemcpy(d_pixels, p[i], total_pixels * sizeof(pixel), cudaMemcpyHostToDevice);
+
+        // Define the regions for processing
+        int top_start = size;
+        int top_end = height / 10 - size;
+        int middle_start = height / 10 - size;
+        int middle_end = height * 0.9 + size;
+        int bottom_start = height * 0.9 + size;
+        int bottom_end = height - size;
+
+        // Define the grid and block dimensions
+        dim3 threadsPerBlock(16, 16);
+        dim3 blocksPerGrid((width + threadsPerBlock.x - 1) / threadsPerBlock.x,
+            (height + threadsPerBlock.y - 1) / threadsPerBlock.y);
+
+        // Perform at least one blur iteration
+        int end = 0;
+        int h_end = 1;
+
+        do {
+        h_end = 1;
+        n_iter++;
+
+        // Set the end flag to 1 (true) at the beginning of each iteration
+        cudaMemcpy(d_end, &h_end, sizeof(int), cudaMemcpyHostToDevice);
+
+        // Initialize new_pixels with edge values
+        cudaMemcpy(d_new_pixels, d_pixels, total_pixels * sizeof(pixel), cudaMemcpyDeviceToDevice);
+
+        // Apply blur to the top region
+        blur_kernel<<<blocksPerGrid, threadsPerBlock>>>(
+        d_pixels, d_new_pixels, width, height, size, top_start, top_end);
+
+        // Copy the middle part (no blur)
+        copy_kernel<<<blocksPerGrid, threadsPerBlock>>>(
+        d_pixels, d_new_pixels, width, height, middle_start, middle_end);
+
+        // Apply blur to the bottom region
+        blur_kernel<<<blocksPerGrid, threadsPerBlock>>>(
+        d_pixels, d_new_pixels, width, height, size, bottom_start, bottom_end);
+
+        // Check threshold and update pixels
+        check_threshold_kernel<<<blocksPerGrid, threadsPerBlock>>>(
+        d_pixels, d_new_pixels, width, height, threshold, d_end);
+
+        // Get the end flag back to host
+        cudaMemcpy(&h_end, d_end, sizeof(int), cudaMemcpyDeviceToHost);
+
+        end = h_end; // continues if end == 0
+
+        } while (threshold > 0 && !end);
+
+        // Copy the final result back to host
+        cudaMemcpy(p[i], d_pixels, total_pixels * sizeof(pixel), cudaMemcpyDeviceToHost);
+
+        // Free device memory
+        cudaFree(d_pixels);
+        cudaFree(d_new_pixels);
+        cudaFree(d_end);
+
+        // Free host memory
+        free(new_pixels);
+
+        #if SOBELF_DEBUG
+        printf("BLUR: number of iterations for image %d: %d\n", i, n_iter);
+        #endif
+    }
+}
+
+
+
+
+
+// New multi-image implementation
+void apply_blur_filter_multi_gpu(animated_gif* image, int size, int threshold) {
+    int n_images = image->n_images;
+    pixel** p = image->p;
+    
+    // Create CUDA streams - one per image for parallel processing
+    cudaStream_t* streams = (cudaStream_t*)malloc(n_images * sizeof(cudaStream_t));
+    for (int i = 0; i < n_images; i++) {
+        cudaStreamCreate(&streams[i]);
+    }
+    
+    // Allocate host arrays to track state for each image
+    int* n_iters = (int*)calloc(n_images, sizeof(int));
+    int* h_ends = (int*)malloc(n_images * sizeof(int));
+    
+    // Arrays to store device pointers for each image
+    pixel** d_pixels_array = (pixel**)malloc(n_images * sizeof(pixel*));
+    pixel** d_new_pixels_array = (pixel**)malloc(n_images * sizeof(pixel*));
+    int** d_end_array = (int**)malloc(n_images * sizeof(int*));
+    
+    // Allocate memory and copy data for each image
+    for (int i = 0; i < n_images; i++) {
+        int width = image->width[i];
+        int height = image->height[i];
+        int total_pixels = width * height;
+        
+        // Allocate device memory for this image
+        cudaMalloc(&d_pixels_array[i], total_pixels * sizeof(pixel));
+        cudaMalloc(&d_new_pixels_array[i], total_pixels * sizeof(pixel));
+        cudaMalloc(&d_end_array[i], sizeof(int));
+        
+        // Copy image data to device using this image's stream
+        cudaMemcpyAsync(d_pixels_array[i], p[i], total_pixels * sizeof(pixel), 
+                       cudaMemcpyHostToDevice, streams[i]);
+    }
+    
+    // Wait for all initial copies to complete
+    cudaDeviceSynchronize();
+    
+    // Process all images in parallel
+    bool all_images_done = false;
+    
+    while (!all_images_done) {
+        all_images_done = true;
+        
+        // Process each image in its own stream
+        for (int i = 0; i < n_images; i++) {
+            int width = image->width[i];
+            int height = image->height[i];
+            
+            // Skip images that are done
+            if (threshold > 0 && h_ends[i] == 1) {
+                continue;
+            }
+            
+            // This image is still being processed
+            all_images_done = false;
+            n_iters[i]++;
+            
+            // Set the end flag to 1 at the beginning of iteration
+            h_ends[i] = 1;
+            cudaMemcpyAsync(d_end_array[i], &h_ends[i], sizeof(int), 
+                           cudaMemcpyHostToDevice, streams[i]);
+            
+            // Define the regions for processing
+            int top_start = size;
+            int top_end = height / 10 - size;
+            int middle_start = height / 10 - size;
+            int middle_end = height * 0.9 + size;
+            int bottom_start = height * 0.9 + size;
+            int bottom_end = height - size;
+            
+            // Define the grid and block dimensions
+            dim3 threadsPerBlock(16, 16);
+            dim3 blocksPerGrid((width + threadsPerBlock.x - 1) / threadsPerBlock.x,
+                               (height + threadsPerBlock.y - 1) / threadsPerBlock.y);
+            
+            // Initialize new_pixels with edge values
+            cudaMemcpyAsync(d_new_pixels_array[i], d_pixels_array[i], 
+                           width * height * sizeof(pixel), 
+                           cudaMemcpyDeviceToDevice, streams[i]);
+            
+            // Apply blur to the top region
+            blur_kernel<<<blocksPerGrid, threadsPerBlock, 0, streams[i]>>>(
+                d_pixels_array[i], d_new_pixels_array[i], width, height, 
+                size, top_start, top_end);
+            
+            // Copy the middle part (no blur)
+            copy_kernel<<<blocksPerGrid, threadsPerBlock, 0, streams[i]>>>(
+                d_pixels_array[i], d_new_pixels_array[i], width, height, 
+                middle_start, middle_end);
+            
+            // Apply blur to the bottom region
+            blur_kernel<<<blocksPerGrid, threadsPerBlock, 0, streams[i]>>>(
+                d_pixels_array[i], d_new_pixels_array[i], width, height, 
+                size, bottom_start, bottom_end);
+            
+            // Check threshold and update pixels
+            check_threshold_kernel<<<blocksPerGrid, threadsPerBlock, 0, streams[i]>>>(
+                d_pixels_array[i], d_new_pixels_array[i], width, height, 
+                threshold, d_end_array[i]);
+            
+            // Get the end flag back to host
+            cudaMemcpyAsync(&h_ends[i], d_end_array[i], sizeof(int), 
+                           cudaMemcpyDeviceToHost, streams[i]);
+        }
+        
+        // Synchronize all streams before checking end conditions
+        cudaDeviceSynchronize();
+    }
+    
+    // Copy results back to host
+    for (int i = 0; i < n_images; i++) {
+        int total_pixels = image->width[i] * image->height[i];
+        
+        cudaMemcpyAsync(p[i], d_pixels_array[i], total_pixels * sizeof(pixel), 
+                       cudaMemcpyDeviceToHost, streams[i]);
+    }
+    
+    // Wait for all copies to complete
+    cudaDeviceSynchronize();
+    
+    // Debug output
+#if SOBELF_DEBUG
+    for (int i = 0; i < n_images; i++) {
+        printf("BLUR: number of iterations for image %d: %d\n", i, n_iters[i]);
+    }
+#endif
+    
+    // Clean up
+    for (int i = 0; i < n_images; i++) {
+        cudaFree(d_pixels_array[i]);
+        cudaFree(d_new_pixels_array[i]);
+        cudaFree(d_end_array[i]);
+        cudaStreamDestroy(streams[i]);
+    }
+    
+    free(streams);
+    free(n_iters);
+    free(h_ends);
+    free(d_pixels_array);
+    free(d_new_pixels_array);
+    free(d_end_array);
+}
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -952,6 +1394,136 @@ apply_sobel_filter( animated_gif * image )
     }
 
 }
+
+
+
+
+
+
+
+// Sobel filter kernel - processes one pixel per thread
+__global__ void sobel_filter_kernel(pixel* input, pixel* output, int width, int height) {
+    int col = blockIdx.x * blockDim.x + threadIdx.x;
+    int row = blockIdx.y * blockDim.y + threadIdx.y;
+    
+    // Only process interior pixels (exclude borders)
+    if (col >= 1 && col < width - 1 && row >= 1 && row < height - 1) {
+        // Get neighboring pixel values (blue channel only)
+        int pixel_blue_no = input[CONV(row-1, col-1, width)].b;
+        int pixel_blue_n  = input[CONV(row-1, col  , width)].b;
+        int pixel_blue_ne = input[CONV(row-1, col+1, width)].b;
+        int pixel_blue_so = input[CONV(row+1, col-1, width)].b;
+        int pixel_blue_s  = input[CONV(row+1, col  , width)].b;
+        int pixel_blue_se = input[CONV(row+1, col+1, width)].b;
+        int pixel_blue_o  = input[CONV(row  , col-1, width)].b;
+        int pixel_blue    = input[CONV(row  , col  , width)].b;
+        int pixel_blue_e  = input[CONV(row  , col+1, width)].b;
+        
+        // Calculate Sobel operators
+        float deltaX_blue = -pixel_blue_no + pixel_blue_ne - 2*pixel_blue_o + 2*pixel_blue_e - pixel_blue_so + pixel_blue_se;
+        float deltaY_blue = pixel_blue_se + 2*pixel_blue_s + pixel_blue_so - pixel_blue_ne - 2*pixel_blue_n - pixel_blue_no;
+        
+        // Calculate magnitude and normalize
+        float val_blue = sqrt(deltaX_blue * deltaX_blue + deltaY_blue * deltaY_blue) / 4.0f;
+        
+        // Apply threshold
+        if (val_blue > 50.0f) {
+            output[CONV(row, col, width)].r = 255;
+            output[CONV(row, col, width)].g = 255;
+            output[CONV(row, col, width)].b = 255;
+        } else {
+            output[CONV(row, col, width)].r = 0;
+            output[CONV(row, col, width)].g = 0;
+            output[CONV(row, col, width)].b = 0;
+        }
+    }
+}
+
+// Kernel to copy results back to original image
+__global__ void copy_result_kernel(pixel* sobel, pixel* output, int width, int height) {
+    int col = blockIdx.x * blockDim.x + threadIdx.x;
+    int row = blockIdx.y * blockDim.y + threadIdx.y;
+    
+    if (col >= 1 && col < width - 1 && row >= 1 && row < height - 1) {
+        int idx = CONV(row, col, width);
+        output[idx].r = sobel[idx].r;
+        output[idx].g = sobel[idx].g;
+        output[idx].b = sobel[idx].b;
+    }
+}
+
+void apply_sobel_filter_gpu(animated_gif* image) {
+    pixel** p = image->p;
+    int n_images = image->n_images;
+    
+    // Create CUDA streams - one per image for parallel processing
+    cudaStream_t* streams = (cudaStream_t*)malloc(n_images * sizeof(cudaStream_t));
+    for (int i = 0; i < n_images; i++) {
+        cudaStreamCreate(&streams[i]);
+    }
+    
+    // Process all images in parallel
+    for (int i = 0; i < n_images; i++) {
+        int width = image->width[i];
+        int height = image->height[i];
+        int total_pixels = width * height;
+        
+        // Allocate device memory
+        pixel* d_input;
+        pixel* d_sobel;
+        cudaMalloc(&d_input, total_pixels * sizeof(pixel));
+        cudaMalloc(&d_sobel, total_pixels * sizeof(pixel));
+        
+        // Initialize d_sobel to zeros (for border pixels)
+        cudaMemset(d_sobel, 0, total_pixels * sizeof(pixel));
+        
+        // Copy image data to device
+        cudaMemcpyAsync(d_input, p[i], total_pixels * sizeof(pixel), 
+                       cudaMemcpyHostToDevice, streams[i]);
+        
+        // Set up grid and block dimensions
+        dim3 threadsPerBlock(16, 16);
+        dim3 numBlocks((width + threadsPerBlock.x - 1) / threadsPerBlock.x,
+                       (height + threadsPerBlock.y - 1) / threadsPerBlock.y);
+        
+        // Launch Sobel filter kernel
+        sobel_filter_kernel<<<numBlocks, threadsPerBlock, 0, streams[i]>>>(
+            d_input, d_sobel, width, height);
+        
+        // Copy results back to input
+        copy_result_kernel<<<numBlocks, threadsPerBlock, 0, streams[i]>>>(
+            d_sobel, d_input, width, height);
+        
+        // Copy results back to host
+        cudaMemcpyAsync(p[i], d_input, total_pixels * sizeof(pixel), 
+                       cudaMemcpyDeviceToHost, streams[i]);
+        
+        // Free device memory (asynchronously using events for better performance)
+        cudaEvent_t event;
+        cudaEventCreate(&event);
+        cudaEventRecord(event, streams[i]);
+        
+        // Create a callback to free memory when operations complete
+        cudaStreamAddCallback(streams[i], [](cudaStream_t stream, cudaError_t status, void* userData) {
+            pixel** devPtrs = (pixel**)userData;
+            cudaFree(devPtrs[0]); // d_input
+            cudaFree(devPtrs[1]); // d_sobel
+            free(devPtrs);        // Free the container
+        }, new pixel*[2]{d_input, d_sobel}, 0);
+    }
+    
+    // Wait for all operations to complete
+    cudaDeviceSynchronize();
+    
+    // Clean up streams
+    for (int i = 0; i < n_images; i++) {
+        cudaStreamDestroy(streams[i]);
+    }
+    free(streams);
+}
+
+
+
 
 
 
@@ -1051,7 +1623,7 @@ int main( int argc, char ** argv )
 
     /* Blur Filter Timer start */
     gettimeofday(&t1, NULL);
-    apply_blur_filter( image, 5, 20 ) ;
+    apply_blur_filter_multi_gpu( image, 5, 20 ) ;
     gettimeofday(&t2, NULL);
     blur_duration = (t2.tv_sec -t1.tv_sec)+((t2.tv_usec-t1.tv_usec)/1e6);
 
@@ -1071,7 +1643,7 @@ int main( int argc, char ** argv )
 
     /* Sobel Filter Timer start */
     gettimeofday(&t1, NULL);
-    apply_sobel_filter( image ) ;
+    apply_sobel_filter_gpu( image ) ;
     gettimeofday(&t2, NULL);
     sobel_duration = (t2.tv_sec -t1.tv_sec)+((t2.tv_usec-t1.tv_usec)/1e6);
 
