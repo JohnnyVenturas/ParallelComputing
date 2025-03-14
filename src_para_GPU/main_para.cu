@@ -636,6 +636,526 @@ store_pixels( char * filename, animated_gif * image )
 
 
 
+
+/* GPU-accelerated version of store_pixels with CUDA */
+
+
+/* CUDA kernel for pixel-to-colormap matching */
+__global__ void findPixelIndicesInColormap(
+    unsigned char* d_pixels_r, 
+    unsigned char* d_pixels_g, 
+    unsigned char* d_pixels_b,
+    unsigned char* d_colormap_r, 
+    unsigned char* d_colormap_g, 
+    unsigned char* d_colormap_b,
+    int* d_result_indices,
+    int n_pixels,
+    int n_colors)
+{
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    
+    if (idx < n_pixels) {
+        unsigned char r = d_pixels_r[idx];
+        unsigned char g = d_pixels_g[idx];
+        unsigned char b = d_pixels_b[idx];
+        
+        int found_index = -1;
+        
+        // Find matching color in colormap - exact same logic as original
+        for (int k = 0; k < n_colors; k++) {
+            if (r == d_colormap_r[k] && 
+                g == d_colormap_g[k] && 
+                b == d_colormap_b[k]) {
+                
+                found_index = k;
+                break;  // Critical: Stop at first match, just like original
+            }
+        }
+        
+        d_result_indices[idx] = found_index;
+    }
+}
+
+/* This is the main function - we'll only accelerate the final colormap matching */
+//// Does not produce the same output...////
+int store_pixels_gpu(char* filename, animated_gif* image)
+{
+    int n_colors = 0;
+    pixel** p;
+    int i, j, k;
+    GifColorType* colormap;
+    
+    /* Initialize the new set of colors */
+    colormap = (GifColorType*)malloc(256 * sizeof(GifColorType));
+    if (colormap == NULL) {
+        fprintf(stderr, "Unable to allocate 256 colors\n");
+        return 0;
+    }
+
+    /* Everything is white by default */
+    for (i = 0; i < 256; i++) {
+        colormap[i].Red = 255;
+        colormap[i].Green = 255;
+        colormap[i].Blue = 255;
+    }
+
+    /* Change the background color and store it */
+    int moy;
+    moy = (
+            image->g->SColorMap->Colors[image->g->SBackGroundColor].Red +
+            image->g->SColorMap->Colors[image->g->SBackGroundColor].Green +
+            image->g->SColorMap->Colors[image->g->SBackGroundColor].Blue
+          ) / 3;
+    if (moy < 0) moy = 0;
+    if (moy > 255) moy = 255;
+
+#if SOBELF_DEBUG
+    printf("[DEBUG] Background color (%d,%d,%d) -> (%d,%d,%d)\n",
+            image->g->SColorMap->Colors[image->g->SBackGroundColor].Red,
+            image->g->SColorMap->Colors[image->g->SBackGroundColor].Green,
+            image->g->SColorMap->Colors[image->g->SBackGroundColor].Blue,
+            moy, moy, moy);
+#endif
+
+    colormap[0].Red = moy;
+    colormap[0].Green = moy;
+    colormap[0].Blue = moy;
+
+    image->g->SBackGroundColor = 0;
+
+    n_colors++;
+
+    /* Process extension blocks in main structure - KEEPING EXACTLY AS ORIGINAL */
+    for (j = 0; j < image->g->ExtensionBlockCount; j++) {
+        int f;
+
+        f = image->g->ExtensionBlocks[j].Function;
+        if (f == GRAPHICS_EXT_FUNC_CODE) {
+            int tr_color = image->g->ExtensionBlocks[j].Bytes[3];
+
+            if (tr_color >= 0 && tr_color < 255) {
+                int found = -1;
+
+                moy = (
+                       image->g->SColorMap->Colors[tr_color].Red +
+                       image->g->SColorMap->Colors[tr_color].Green +
+                       image->g->SColorMap->Colors[tr_color].Blue
+                      ) / 3;
+                if (moy < 0) moy = 0;
+                if (moy > 255) moy = 255;
+
+#if SOBELF_DEBUG
+                printf("[DEBUG] Transparency color image %d (%d,%d,%d) -> (%d,%d,%d)\n",
+                        i,
+                        image->g->SColorMap->Colors[tr_color].Red,
+                        image->g->SColorMap->Colors[tr_color].Green,
+                        image->g->SColorMap->Colors[tr_color].Blue,
+                        moy, moy, moy);
+#endif
+
+                for (k = 0; k < n_colors; k++) {
+                    if (moy == colormap[k].Red &&
+                        moy == colormap[k].Green &&
+                        moy == colormap[k].Blue) {
+                        found = k;
+                    }
+                }
+                
+                if (found == -1) {
+                    if (n_colors >= 256) {
+                        fprintf(stderr, "Error: Found too many colors inside the image\n");
+                        return 0;
+                    }
+
+#if SOBELF_DEBUG
+                    printf("[DEBUG]\tNew color %d\n", n_colors);
+#endif
+
+                    colormap[n_colors].Red = moy;
+                    colormap[n_colors].Green = moy;
+                    colormap[n_colors].Blue = moy;
+
+                    image->g->ExtensionBlocks[j].Bytes[3] = n_colors;
+
+                    n_colors++;
+                } else {
+#if SOBELF_DEBUG
+                    printf("[DEBUG]\tFound existing color %d\n", found);
+#endif
+                    image->g->ExtensionBlocks[j].Bytes[3] = found;
+                }
+            }
+        }
+    }
+
+    /* Process saved images extension blocks - KEEPING EXACTLY AS ORIGINAL */
+    for (i = 0; i < image->n_images; i++) {
+        for (j = 0; j < image->g->SavedImages[i].ExtensionBlockCount; j++) {
+            int f;
+
+            f = image->g->SavedImages[i].ExtensionBlocks[j].Function;
+            if (f == GRAPHICS_EXT_FUNC_CODE) {
+                int tr_color = image->g->SavedImages[i].ExtensionBlocks[j].Bytes[3];
+
+                if (tr_color >= 0 && tr_color < 255) {
+                    int found = -1;
+
+                    moy = (
+                           image->g->SColorMap->Colors[tr_color].Red +
+                           image->g->SColorMap->Colors[tr_color].Green +
+                           image->g->SColorMap->Colors[tr_color].Blue
+                          ) / 3;
+                    if (moy < 0) moy = 0;
+                    if (moy > 255) moy = 255;
+
+#if SOBELF_DEBUG
+                    printf("[DEBUG] Transparency color image %d (%d,%d,%d) -> (%d,%d,%d)\n",
+                            i,
+                            image->g->SColorMap->Colors[tr_color].Red,
+                            image->g->SColorMap->Colors[tr_color].Green,
+                            image->g->SColorMap->Colors[tr_color].Blue,
+                            moy, moy, moy);
+#endif
+
+                    for (k = 0; k < n_colors; k++) {
+                        if (moy == colormap[k].Red &&
+                            moy == colormap[k].Green &&
+                            moy == colormap[k].Blue) {
+                            found = k;
+                        }
+                    }
+                    
+                    if (found == -1) {
+                        if (n_colors >= 256) {
+                            fprintf(stderr, "Error: Found too many colors inside the image\n");
+                            return 0;
+                        }
+
+#if SOBELF_DEBUG
+                        printf("[DEBUG]\tNew color %d\n", n_colors);
+#endif
+
+                        colormap[n_colors].Red = moy;
+                        colormap[n_colors].Green = moy;
+                        colormap[n_colors].Blue = moy;
+
+                        image->g->SavedImages[i].ExtensionBlocks[j].Bytes[3] = n_colors;
+
+                        n_colors++;
+                    } else {
+#if SOBELF_DEBUG
+                        printf("[DEBUG]\tFound existing color %d\n", found);
+#endif
+                        image->g->SavedImages[i].ExtensionBlocks[j].Bytes[3] = found;
+                    }
+                }
+            }
+        }
+    }
+
+#if SOBELF_DEBUG
+    printf("[DEBUG] Number of colors after background and transparency: %d\n", n_colors);
+#endif
+
+    p = image->p;
+    
+    /* Find the number of colors inside the image - KEEPING EXACTLY AS ORIGINAL */
+    for (i = 0; i < image->n_images; i++) {
+#if SOBELF_DEBUG
+        printf("OUTPUT: Processing image %d (total of %d images) -> %d x %d\n",
+                i, image->n_images, image->width[i], image->height[i]);
+#endif
+
+        for (j = 0; j < image->width[i] * image->height[i]; j++) {
+            int found = 0;
+            for (k = 0; k < n_colors; k++) {
+                if (p[i][j].r == colormap[k].Red &&
+                    p[i][j].g == colormap[k].Green &&
+                    p[i][j].b == colormap[k].Blue) {
+                    found = 1;
+                    break;  // Important: stop at first match
+                }
+            }
+
+            if (found == 0) {
+                if (n_colors >= 256) {
+                    fprintf(stderr, "Error: Found too many colors inside the image\n");
+                    return 0;
+                }
+
+#if SOBELF_DEBUG
+                printf("[DEBUG] Found new %d color (%d,%d,%d)\n",
+                        n_colors, p[i][j].r, p[i][j].g, p[i][j].b);
+#endif
+
+                colormap[n_colors].Red = p[i][j].r;
+                colormap[n_colors].Green = p[i][j].g;
+                colormap[n_colors].Blue = p[i][j].b;
+                n_colors++;
+            }
+        }
+    }
+
+#if SOBELF_DEBUG
+    printf("OUTPUT: found %d color(s)\n", n_colors);
+#endif
+
+    /* Round up to a power of 2 */
+    if (n_colors != (1 << GifBitSize(n_colors))) {
+        n_colors = (1 << GifBitSize(n_colors));
+    }
+
+#if SOBELF_DEBUG
+    printf("OUTPUT: Rounding up to %d color(s)\n", n_colors);
+#endif
+
+    /* Change the color map inside the animated gif */
+    ColorMapObject* cmo;
+    cmo = GifMakeMapObject(n_colors, colormap);
+    if (cmo == NULL) {
+        fprintf(stderr, "Error while creating a ColorMapObject w/ %d color(s)\n", n_colors);
+        return 0;
+    }
+
+    image->g->SColorMap = cmo;
+
+    /* This is the only part we'll accelerate with CUDA: 
+       Update the raster bits according to color map */
+    
+    // Check if CUDA is available
+    int deviceCount = 0;
+    cudaError_t cudaStatus = cudaGetDeviceCount(&deviceCount);
+    if (cudaStatus != cudaSuccess || deviceCount == 0) {
+        // Fallback to CPU implementation if CUDA is not available
+        printf("CUDA acceleration not available, using CPU fallback\n");
+        
+        // Original CPU implementation
+        for (i = 0; i < image->n_images; i++) {
+            for (j = 0; j < image->width[i] * image->height[i]; j++) {
+                int found_index = -1;
+                for (k = 0; k < n_colors; k++) {
+                    if (p[i][j].r == image->g->SColorMap->Colors[k].Red &&
+                        p[i][j].g == image->g->SColorMap->Colors[k].Green &&
+                        p[i][j].b == image->g->SColorMap->Colors[k].Blue) {
+                        found_index = k;
+                        break;  // Stop at first match
+                    }
+                }
+
+                if (found_index == -1) {
+                    fprintf(stderr, "Error: Unable to find a pixel in the color map\n");
+                    return 0;
+                }
+
+                image->g->SavedImages[i].RasterBits[j] = found_index;
+            }
+        }
+    } else {
+        // CUDA implementation
+        // Allocate and copy colormap to GPU memory
+        unsigned char *d_colormap_r, *d_colormap_g, *d_colormap_b;
+        
+        cudaMalloc((void**)&d_colormap_r, n_colors * sizeof(unsigned char));
+        cudaMalloc((void**)&d_colormap_g, n_colors * sizeof(unsigned char));
+        cudaMalloc((void**)&d_colormap_b, n_colors * sizeof(unsigned char));
+        
+        // Prepare host colormap arrays
+        unsigned char *h_colormap_r = (unsigned char*)malloc(n_colors * sizeof(unsigned char));
+        unsigned char *h_colormap_g = (unsigned char*)malloc(n_colors * sizeof(unsigned char));
+        unsigned char *h_colormap_b = (unsigned char*)malloc(n_colors * sizeof(unsigned char));
+        
+        for (k = 0; k < n_colors; k++) {
+            h_colormap_r[k] = image->g->SColorMap->Colors[k].Red;
+            h_colormap_g[k] = image->g->SColorMap->Colors[k].Green;
+            h_colormap_b[k] = image->g->SColorMap->Colors[k].Blue;
+        }
+        
+        cudaMemcpy(d_colormap_r, h_colormap_r, n_colors * sizeof(unsigned char), cudaMemcpyHostToDevice);
+        cudaMemcpy(d_colormap_g, h_colormap_g, n_colors * sizeof(unsigned char), cudaMemcpyHostToDevice);
+        cudaMemcpy(d_colormap_b, h_colormap_b, n_colors * sizeof(unsigned char), cudaMemcpyHostToDevice);
+        
+        // Process each image separately
+        for (i = 0; i < image->n_images; i++) {
+            int n_pixels = image->width[i] * image->height[i];
+            
+            // Skip small images - not worth GPU overhead
+            if (n_pixels < 1000) {
+                // Use CPU for small images
+                for (j = 0; j < n_pixels; j++) {
+                    int found_index = -1;
+                    for (k = 0; k < n_colors; k++) {
+                        if (p[i][j].r == image->g->SColorMap->Colors[k].Red &&
+                            p[i][j].g == image->g->SColorMap->Colors[k].Green &&
+                            p[i][j].b == image->g->SColorMap->Colors[k].Blue) {
+                            found_index = k;
+                            break;
+                        }
+                    }
+
+                    if (found_index == -1) {
+                        fprintf(stderr, "Error: Unable to find a pixel in the color map\n");
+                        // Clean up
+                        cudaFree(d_colormap_r);
+                        cudaFree(d_colormap_g);
+                        cudaFree(d_colormap_b);
+                        free(h_colormap_r);
+                        free(h_colormap_g);
+                        free(h_colormap_b);
+                        return 0;
+                    }
+
+                    image->g->SavedImages[i].RasterBits[j] = found_index;
+                }
+                continue;  // Skip to next image
+            }
+            
+            // Allocate device memory for pixels and results
+            unsigned char *d_pixels_r, *d_pixels_g, *d_pixels_b;
+            int *d_result_indices;
+            
+            cudaMalloc((void**)&d_pixels_r, n_pixels * sizeof(unsigned char));
+            cudaMalloc((void**)&d_pixels_g, n_pixels * sizeof(unsigned char));
+            cudaMalloc((void**)&d_pixels_b, n_pixels * sizeof(unsigned char));
+            cudaMalloc((void**)&d_result_indices, n_pixels * sizeof(int));
+            
+            // Prepare host pixel arrays
+            unsigned char *h_pixels_r = (unsigned char*)malloc(n_pixels * sizeof(unsigned char));
+            unsigned char *h_pixels_g = (unsigned char*)malloc(n_pixels * sizeof(unsigned char));
+            unsigned char *h_pixels_b = (unsigned char*)malloc(n_pixels * sizeof(unsigned char));
+            int *h_result_indices = (int*)malloc(n_pixels * sizeof(int));
+            
+            // Extract pixel data
+            for (j = 0; j < n_pixels; j++) {
+                h_pixels_r[j] = p[i][j].r;
+                h_pixels_g[j] = p[i][j].g;
+                h_pixels_b[j] = p[i][j].b;
+            }
+            
+            // Copy pixel data to device
+            cudaMemcpy(d_pixels_r, h_pixels_r, n_pixels * sizeof(unsigned char), cudaMemcpyHostToDevice);
+            cudaMemcpy(d_pixels_g, h_pixels_g, n_pixels * sizeof(unsigned char), cudaMemcpyHostToDevice);
+            cudaMemcpy(d_pixels_b, h_pixels_b, n_pixels * sizeof(unsigned char), cudaMemcpyHostToDevice);
+            
+            // Initialize result indices to -1
+            cudaMemset(d_result_indices, -1, n_pixels * sizeof(int));
+            
+            // Launch kernel
+            int blockSize = 256;
+            int gridSize = (n_pixels + blockSize - 1) / blockSize;
+            
+            findPixelIndicesInColormap<<<gridSize, blockSize>>>(
+                d_pixels_r, d_pixels_g, d_pixels_b,
+                d_colormap_r, d_colormap_g, d_colormap_b,
+                d_result_indices, n_pixels, n_colors
+            );
+            
+            // Check for errors
+            cudaDeviceSynchronize();
+            cudaStatus = cudaGetLastError();
+            if (cudaStatus != cudaSuccess) {
+                fprintf(stderr, "CUDA kernel error: %s\n", cudaGetErrorString(cudaStatus));
+                // Fall back to CPU implementation for this image
+                for (j = 0; j < n_pixels; j++) {
+                    int found_index = -1;
+                    for (k = 0; k < n_colors; k++) {
+                        if (p[i][j].r == image->g->SColorMap->Colors[k].Red &&
+                            p[i][j].g == image->g->SColorMap->Colors[k].Green &&
+                            p[i][j].b == image->g->SColorMap->Colors[k].Blue) {
+                            found_index = k;
+                            break;
+                        }
+                    }
+
+                    if (found_index == -1) {
+                        fprintf(stderr, "Error: Unable to find a pixel in the color map\n");
+                        // Clean up
+                        cudaFree(d_pixels_r);
+                        cudaFree(d_pixels_g);
+                        cudaFree(d_pixels_b);
+                        cudaFree(d_result_indices);
+                        free(h_pixels_r);
+                        free(h_pixels_g);
+                        free(h_pixels_b);
+                        free(h_result_indices);
+                        cudaFree(d_colormap_r);
+                        cudaFree(d_colormap_g);
+                        cudaFree(d_colormap_b);
+                        free(h_colormap_r);
+                        free(h_colormap_g);
+                        free(h_colormap_b);
+                        return 0;
+                    }
+
+                    image->g->SavedImages[i].RasterBits[j] = found_index;
+                }
+            } else {
+                // Copy results back to host
+                cudaMemcpy(h_result_indices, d_result_indices, n_pixels * sizeof(int), cudaMemcpyDeviceToHost);
+                
+                // Apply results
+                for (j = 0; j < n_pixels; j++) {
+                    if (h_result_indices[j] == -1) {
+                        fprintf(stderr, "Error: CUDA kernel could not find a pixel in the color map\n");
+                        // Clean up
+                        cudaFree(d_pixels_r);
+                        cudaFree(d_pixels_g);
+                        cudaFree(d_pixels_b);
+                        cudaFree(d_result_indices);
+                        free(h_pixels_r);
+                        free(h_pixels_g);
+                        free(h_pixels_b);
+                        free(h_result_indices);
+                        cudaFree(d_colormap_r);
+                        cudaFree(d_colormap_g);
+                        cudaFree(d_colormap_b);
+                        free(h_colormap_r);
+                        free(h_colormap_g);
+                        free(h_colormap_b);
+                        return 0;
+                    }
+                    
+                    image->g->SavedImages[i].RasterBits[j] = h_result_indices[j];
+                }
+            }
+            
+            // Free resources for this image
+            cudaFree(d_pixels_r);
+            cudaFree(d_pixels_g);
+            cudaFree(d_pixels_b);
+            cudaFree(d_result_indices);
+            free(h_pixels_r);
+            free(h_pixels_g);
+            free(h_pixels_b);
+            free(h_result_indices);
+        }
+        
+        // Free colormap resources
+        cudaFree(d_colormap_r);
+        cudaFree(d_colormap_g);
+        cudaFree(d_colormap_b);
+        free(h_colormap_r);
+        free(h_colormap_g);
+        free(h_colormap_b);
+    }
+    
+    /* Write the final image */
+    if (!output_modified_read_gif(filename, image->g)) {
+        return 0;
+    }
+    
+    return 1;
+}
+
+
+
+
+
+
+
+
+
+
+
 __global__ void gray_filter_kernel(pixel *d_pixels, int width, int height, int total_pixels) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x ;
 
