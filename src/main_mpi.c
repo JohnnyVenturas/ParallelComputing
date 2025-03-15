@@ -489,6 +489,7 @@ int store_pixels(char *filename, animated_gif *image) {
     return 1;
 }
 
+
 void apply_gray_filter(animated_gif *image) {
     int i, j;
     pixel **p;
@@ -786,11 +787,11 @@ int main(int argc, char **argv) {
 
     //Separating work
 
-    //MPI_Init(&argc, &argv);
+    MPI_Init(&argc, &argv);
     int processes, rank;
 
-   // MPI_Comm_size(MPI_COMM_WORLD, &processes);
-    //MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &processes);
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     
     if(image->n_images == processes) {
             
@@ -804,7 +805,7 @@ int main(int argc, char **argv) {
     /* Apply sobel filter on pixels */
     apply_sobel_filter(image);
 
-    //MPI_Finalize();
+    MPI_Finalize();
 
     /* FILTER Timer stop */
     gettimeofday(&t2, NULL);
