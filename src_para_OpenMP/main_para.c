@@ -1464,7 +1464,7 @@ int main( int argc, char ** argv )
     /* Check if the file is empty to write the header */
     fseek(duration_file, 0, SEEK_END);
     if (ftell(duration_file) == 0) {
-        fprintf(duration_file, "Filename,Parallelization Type,Number Images,Number Pixels,Import Duration,Gray Filter Duration,Blur Filter Duration,Sobel Filter Duration,Export Duration\n");
+        fprintf(duration_file, "Filename,Using_OpenMP,Number Images,Number Pixels,Import Duration,Gray Filter Duration,Blur Filter Duration,Sobel Filter Duration,Export Duration\n");
     }
     fseek(duration_file, 0, SEEK_END);
 
@@ -1498,12 +1498,16 @@ int main( int argc, char ** argv )
     //// and use it in the functions
 
     int parallelization_type;
+    char * Using_OpenMP ;
     if (image->n_images >= 8) {
-    parallelization_type = PARALLELIZE_IMAGES; }
+        parallelization_type = PARALLELIZE_IMAGES;
+        Using_OpenMP = "Using OpenMP on images";}
     else if (image->width[0] * image->height[0] >= 1000) {
-        parallelization_type = PARALLELIZE_PIXELS;}
+        parallelization_type = PARALLELIZE_PIXELS;
+        Using_OpenMP = "Using OpenMP on pixels";}
     else {
         parallelization_type = NO_PARALLELIZATION;
+        Using_OpenMP = "Not using OpenMP";
     }
 
     int nb_images = image->n_images;
@@ -1568,7 +1572,7 @@ int main( int argc, char ** argv )
 #endif
 
     /* Write durations to file */
-    fprintf(duration_file, "%s,%d,%d, %d, %lf,%lf,%lf,%lf,%lf\n", input_filename, parallelization_type, nb_images, nb_pixels, import_duration, gray_duration, blur_duration, sobel_duration, export_duration);
+    fprintf(duration_file, "%s,%s,%d, %d, %lf,%lf,%lf,%lf,%lf\n", input_filename, Using_OpenMP, nb_images, nb_pixels, import_duration, gray_duration, blur_duration, sobel_duration, export_duration);
 
     /* Close the file */
     fclose(duration_file);
