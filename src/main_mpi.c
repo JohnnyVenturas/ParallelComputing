@@ -788,22 +788,30 @@ int main(int argc, char **argv) {
     //Separating work
 
     MPI_Init(&argc, &argv);
-    int processes, rank;
+    int size, rank;
 
-    MPI_Comm_size(MPI_COMM_WORLD, &processes);
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     
-    if(image->n_images == processes) {
-            
-    }
+    if(image->n_images >= size) {
+                
     /* Convert the pixels into grayscale */
-    apply_gray_filter(image);
 
-    /* Apply blur filter with convergence value */
-    apply_blur_filter(image, 5, 20);
+        if(rank == 0) {
+            for(int i = 1; i < size; ++i) {
+                MPI_Send(image, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm)
+            }
 
-    /* Apply sobel filter on pixels */
-    apply_sobel_filter(image);
+        }
+        apply_gray_filter(image);
+
+        /* Apply blur filter with convergence value */
+        apply_blur_filter(image, 5, 20);
+
+        /* Apply sobel filter on pixels */
+        apply_sobel_filter(image);
+
+    }
 
     MPI_Finalize();
 
