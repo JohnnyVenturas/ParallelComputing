@@ -260,7 +260,256 @@ typedef struct animated_gif
 
 
 
+// animated_gif *
+// load_pixels(char * filename) 
+// {
+//     GifFileType * g;
+//     ColorMapObject * colmap;
+//     int error;
+//     int n_images;
+//     int * width;
+//     int * height;
+//     pixel ** p;
+//     int i;
+//     animated_gif * image;
 
+//     /* Open the GIF image (read mode) */
+//     g = DGifOpenFileName(filename, &error);
+//     if (g == NULL) 
+//     {
+//         fprintf(stderr, "Error DGifOpenFileName %s\n", filename);
+//         return NULL;
+//     }
+
+//     /* Read the GIF image */
+//     error = DGifSlurp(g);
+//     if (error != GIF_OK)
+//     {
+//         fprintf(stderr, 
+//                 "Error DGifSlurp: %d <%s>\n", error, GifErrorString(g->Error));
+//         return NULL;
+//     }
+
+//     /* Grab the number of images and the size of each image */
+//     n_images = g->ImageCount;
+
+//     width = (int *)malloc(n_images * sizeof(int));
+//     if (width == NULL)
+//     {
+//         fprintf(stderr, "Unable to allocate width of size %d\n", n_images);
+//         return NULL;
+//     }
+
+//     height = (int *)malloc(n_images * sizeof(int));
+//     if (height == NULL)
+//     {
+//         fprintf(stderr, "Unable to allocate height of size %d\n", n_images);
+//         free(width);
+//         return NULL;
+//     }
+
+//     /* Fill the width and height - keep this sequential, it's lightweight */
+//     for (i = 0; i < n_images; i++) 
+//     {
+//         width[i] = g->SavedImages[i].ImageDesc.Width;
+//         height[i] = g->SavedImages[i].ImageDesc.Height;
+
+// #if SOBELF_DEBUG
+//         printf("Image %d: l:%d t:%d w:%d h:%d interlace:%d localCM:%p\n",
+//                 i, 
+//                 g->SavedImages[i].ImageDesc.Left,
+//                 g->SavedImages[i].ImageDesc.Top,
+//                 g->SavedImages[i].ImageDesc.Width,
+//                 g->SavedImages[i].ImageDesc.Height,
+//                 g->SavedImages[i].ImageDesc.Interlace,
+//                 g->SavedImages[i].ImageDesc.ColorMap
+//                 );
+// #endif
+//     }
+
+//     /* Get the global colormap */
+//     colmap = g->SColorMap;
+//     if (colmap == NULL) 
+//     {
+//         fprintf(stderr, "Error global colormap is NULL\n");
+//         free(width);
+//         free(height);
+//         return NULL;
+//     }
+
+// #if SOBELF_DEBUG
+//     printf("Global color map: count:%d bpp:%d sort:%d\n",
+//             g->SColorMap->ColorCount,
+//             g->SColorMap->BitsPerPixel,
+//             g->SColorMap->SortFlag
+//             );
+// #endif
+
+//     /* Check for local colormaps before any parallel region */
+//     for (i = 0; i < n_images; i++)
+//     {
+//         if (g->SavedImages[i].ImageDesc.ColorMap)
+//         {
+//             fprintf(stderr, "Error: application does not support local colormap\n");
+//             free(width);
+//             free(height);
+//             return NULL;
+//         }
+//     }
+
+//     /* Allocate the array of pixels to be returned */
+//     p = (pixel **)malloc(n_images * sizeof(pixel *));
+//     if (p == NULL)
+//     {
+//         fprintf(stderr, "Unable to allocate array of %d images\n", n_images);
+//         free(width);
+//         free(height);
+//         return NULL;
+//     }
+
+//     /* Allocate memory for each image - keep sequential for proper error handling */
+//     for (i = 0; i < n_images; i++) 
+//     {
+//         p[i] = (pixel *)malloc(width[i] * height[i] * sizeof(pixel));
+//         if (p[i] == NULL)
+//         {
+//             fprintf(stderr, "Unable to allocate %d-th array of %d pixels\n",
+//                   i, width[i] * height[i]);
+            
+//             /* Clean up already allocated memory */
+//             for (int j = 0; j < i; j++) {
+//                 free(p[j]);
+//             }
+//             free(p);
+//             free(width);
+//             free(height);
+//             return NULL;
+//         }
+//     }
+    
+//     /* Set the number of threads explicitly based on available cores */
+//     #pragma omp parallel
+//     {
+//         #pragma omp master
+//         {
+//             #if SOBELF_DEBUG
+//             printf("Running with %d threads\n", omp_get_num_threads());
+//             #endif
+//         }
+//     }
+    
+//     /* Fill pixels with improved parallelization */
+//     if (n_images > 1) 
+//     {
+//         /* For multiple images: use a thread pool with dynamic scheduling */
+//         #pragma omp parallel for schedule(dynamic, 1) proc_bind(spread)
+//         for (i = 0; i < n_images; i++)
+//         {
+//             int j;
+//             int w = width[i];
+//             int h = height[i];
+//             int pixel_count = w * h;
+            
+//             /* For large images, parallelize pixel processing with chunking for better cache utilization */
+//             if (pixel_count > 100000) 
+//             {
+//                 const int chunk_size = 8192; /* Adjust based on cache size */
+//                 #pragma omp parallel for schedule(dynamic, chunk_size) if(pixel_count > 500000)
+//                 for (j = 0; j < pixel_count; j++) 
+//                 {
+//                     int c = g->SavedImages[i].RasterBits[j];
+//                     p[i][j].r = colmap->Colors[c].Red;
+//                     p[i][j].g = colmap->Colors[c].Green;
+//                     p[i][j].b = colmap->Colors[c].Blue;
+//                 }
+//             } 
+//             else 
+//             {
+//                 /* For smaller images, use vectorization hints */
+//                 #pragma omp simd
+//                 for (j = 0; j < pixel_count; j++) 
+//                 {
+//                     int c = g->SavedImages[i].RasterBits[j];
+//                     p[i][j].r = colmap->Colors[c].Red;
+//                     p[i][j].g = colmap->Colors[c].Green;
+//                     p[i][j].b = colmap->Colors[c].Blue;
+//                 }
+//             }
+//         }
+//     } 
+//     else 
+//     {
+//         /* For a single image: optimize based on image size */
+//         int pixel_count = width[0] * height[0];
+        
+//         if (pixel_count > 500000) 
+//         {
+//             /* Very large image: use multiple threads with cache-friendly chunking */
+//             const int chunk_size = 16384;
+//             #pragma omp parallel for schedule(dynamic, chunk_size) proc_bind(close)
+//             for (int j = 0; j < pixel_count; j++) 
+//             {
+//                 int c = g->SavedImages[0].RasterBits[j];
+//                 p[0][j].r = colmap->Colors[c].Red;
+//                 p[0][j].g = colmap->Colors[c].Green;
+//                 p[0][j].b = colmap->Colors[c].Blue;
+//             }
+//         } 
+//         else if (pixel_count > 50000) 
+//         {
+//             /* Medium image: basic parallelization with SIMD hints */
+//             #pragma omp parallel for simd
+//             for (int j = 0; j < pixel_count; j++) 
+//             {
+//                 int c = g->SavedImages[0].RasterBits[j];
+//                 p[0][j].r = colmap->Colors[c].Red;
+//                 p[0][j].g = colmap->Colors[c].Green;
+//                 p[0][j].b = colmap->Colors[c].Blue;
+//             }
+//         } 
+//         else 
+//         {
+//             /* Small image: just use SIMD */
+//             #pragma omp simd
+//             for (int j = 0; j < pixel_count; j++) 
+//             {
+//                 int c = g->SavedImages[0].RasterBits[j];
+//                 p[0][j].r = colmap->Colors[c].Red;
+//                 p[0][j].g = colmap->Colors[c].Green;
+//                 p[0][j].b = colmap->Colors[c].Blue;
+//             }
+//         }
+//     }
+
+//     /* Allocate image info */
+//     image = (animated_gif *)malloc(sizeof(animated_gif));
+//     if (image == NULL) 
+//     {
+//         fprintf(stderr, "Unable to allocate memory for animated_gif\n");
+//         /* Clean up */
+//         for (i = 0; i < n_images; i++) {
+//             free(p[i]);
+//         }
+//         free(p);
+//         free(width);
+//         free(height);
+//         return NULL;
+//     }
+
+//     /* Fill image fields */
+//     image->n_images = n_images;
+//     image->width = width;
+//     image->height = height;
+//     image->p = p;
+//     image->g = g;
+
+// #if SOBELF_DEBUG
+//     printf("-> GIF w/ %d image(s) with first image of size %d x %d\n",
+//             image->n_images, image->width[0], image->height[0]);
+// #endif
+
+//     return image;
+// }
 
 
 

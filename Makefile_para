@@ -2,9 +2,16 @@ SRC_DIR=src_para
 HEADER_DIR=include
 OBJ_DIR=obj_para
 
+# CUDA compiler
 CC=nvcc -I.
-CFLAGS=-O3 -g -I$(HEADER_DIR)
-LDFLAGS=-lm
+
+# OpenMP flags for CUDA
+# -Xcompiler flag passes options to the underlying host compiler
+OPENMP_FLAGS=-Xcompiler -fopenmp
+
+# Combine flags
+CFLAGS=-O3 -g -I$(HEADER_DIR) $(OPENMP_FLAGS)
+LDFLAGS=-lm -Xcompiler -fopenmp
 
 SRC= $(SRC_DIR)/dgif_lib_para.c \
      $(SRC_DIR)/egif_lib_para.c \
