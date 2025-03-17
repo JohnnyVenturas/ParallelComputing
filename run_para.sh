@@ -48,4 +48,3 @@ echo ""
 # Printing the results
 echo -e "\n Printing results... \n"
 python Compare_runtime.py
-

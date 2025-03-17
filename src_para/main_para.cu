@@ -781,7 +781,7 @@ apply_blur_filter( animated_gif * image, int size, int threshold, int paralleliz
             height = image->height[i] ;
 
             /* Allocate array of new pixels */
-            pixel * new = (pixel *)malloc(width * height * sizeof( pixel ) ) ;
+            pixel * new_pixels = (pixel *)malloc(width * height * sizeof( pixel ) ) ;
 
 
             /* Perform at least one blur iteration */
@@ -795,9 +795,9 @@ apply_blur_filter( animated_gif * image, int size, int threshold, int paralleliz
                 {
                     for(k=0; k<width-1; k++)
                     {
-                        new[CONV(j,k,width)].r = p[i][CONV(j,k,width)].r ;
-                        new[CONV(j,k,width)].g = p[i][CONV(j,k,width)].g ;
-                        new[CONV(j,k,width)].b = p[i][CONV(j,k,width)].b ;
+                        new_pixels[CONV(j,k,width)].r = p[i][CONV(j,k,width)].r ;
+                        new_pixels[CONV(j,k,width)].g = p[i][CONV(j,k,width)].g ;
+                        new_pixels[CONV(j,k,width)].b = p[i][CONV(j,k,width)].b ;
                     }
                 }
 
@@ -821,9 +821,9 @@ apply_blur_filter( animated_gif * image, int size, int threshold, int paralleliz
                             }
                         }
 
-                        new[CONV(j,k,width)].r = t_r / ( (2*size+1)*(2*size+1) ) ;
-                        new[CONV(j,k,width)].g = t_g / ( (2*size+1)*(2*size+1) ) ;
-                        new[CONV(j,k,width)].b = t_b / ( (2*size+1)*(2*size+1) ) ;
+                        new_pixels[CONV(j,k,width)].r = t_r / ( (2*size+1)*(2*size+1) ) ;
+                        new_pixels[CONV(j,k,width)].g = t_g / ( (2*size+1)*(2*size+1) ) ;
+                        new_pixels[CONV(j,k,width)].b = t_b / ( (2*size+1)*(2*size+1) ) ;
                     }
                 }
 
@@ -836,9 +836,9 @@ apply_blur_filter( animated_gif * image, int size, int threshold, int paralleliz
 
                 for (j = start_row; j < end_row; j++) {
                     for (k = start_col; k < end_col; k++) {
-                        new[CONV(j, k, width)].r = p[i][CONV(j, k, width)].r;
-                        new[CONV(j, k, width)].g = p[i][CONV(j, k, width)].g;
-                        new[CONV(j, k, width)].b = p[i][CONV(j, k, width)].b;
+                        new_pixels[CONV(j, k, width)].r = p[i][CONV(j, k, width)].r;
+                        new_pixels[CONV(j, k, width)].g = p[i][CONV(j, k, width)].g;
+                        new_pixels[CONV(j, k, width)].b = p[i][CONV(j, k, width)].b;
                     }
                 }
 
@@ -863,9 +863,9 @@ apply_blur_filter( animated_gif * image, int size, int threshold, int paralleliz
                             }
                         }
 
-                        new[CONV(j,k,width)].r = t_r / ( (2*size+1)*(2*size+1) ) ;
-                        new[CONV(j,k,width)].g = t_g / ( (2*size+1)*(2*size+1) ) ;
-                        new[CONV(j,k,width)].b = t_b / ( (2*size+1)*(2*size+1) ) ;
+                        new_pixels[CONV(j,k,width)].r = t_r / ( (2*size+1)*(2*size+1) ) ;
+                        new_pixels[CONV(j,k,width)].g = t_g / ( (2*size+1)*(2*size+1) ) ;
+                        new_pixels[CONV(j,k,width)].b = t_b / ( (2*size+1)*(2*size+1) ) ;
                     }
                 }
 
@@ -884,9 +884,9 @@ apply_blur_filter( animated_gif * image, int size, int threshold, int paralleliz
                         float diff_g ;
                         float diff_b ;
 
-                        diff_r = (new[CONV(j  ,k  ,width)].r - p[i][CONV(j  ,k  ,width)].r) ;
-                        diff_g = (new[CONV(j  ,k  ,width)].g - p[i][CONV(j  ,k  ,width)].g) ;
-                        diff_b = (new[CONV(j  ,k  ,width)].b - p[i][CONV(j  ,k  ,width)].b) ;
+                        diff_r = (new_pixels[CONV(j  ,k  ,width)].r - p[i][CONV(j  ,k  ,width)].r) ;
+                        diff_g = (new_pixels[CONV(j  ,k  ,width)].g - p[i][CONV(j  ,k  ,width)].g) ;
+                        diff_b = (new_pixels[CONV(j  ,k  ,width)].b - p[i][CONV(j  ,k  ,width)].b) ;
 
                         if ( diff_r > threshold || -diff_r > threshold 
                                 ||
@@ -897,9 +897,9 @@ apply_blur_filter( animated_gif * image, int size, int threshold, int paralleliz
                             end = 0 ;
                         }
 
-                        p[i][CONV(j  ,k  ,width)].r = new[CONV(j  ,k  ,width)].r ;
-                        p[i][CONV(j  ,k  ,width)].g = new[CONV(j  ,k  ,width)].g ;
-                        p[i][CONV(j  ,k  ,width)].b = new[CONV(j  ,k  ,width)].b ;
+                        p[i][CONV(j  ,k  ,width)].r = new_pixels[CONV(j  ,k  ,width)].r ;
+                        p[i][CONV(j  ,k  ,width)].g = new_pixels[CONV(j  ,k  ,width)].g ;
+                        p[i][CONV(j  ,k  ,width)].b = new_pixels[CONV(j  ,k  ,width)].b ;
                     }
                 }
 
@@ -910,7 +910,7 @@ apply_blur_filter( animated_gif * image, int size, int threshold, int paralleliz
         printf( "BLUR: number of iterations for image %d\n", n_iter ) ;
     #endif
 
-            free (new) ;
+            free (new_pixels) ;
         }
     }
 
@@ -923,7 +923,7 @@ apply_blur_filter( animated_gif * image, int size, int threshold, int paralleliz
             height = image->height[i] ;
 
             /* Allocate array of new pixels */
-            pixel * new = (pixel *)malloc(width * height * sizeof( pixel ) ) ;
+            pixel * new_pixels = (pixel *)malloc(width * height * sizeof( pixel ) ) ;
 
 
             /* Perform at least one blur iteration */
@@ -938,9 +938,9 @@ apply_blur_filter( animated_gif * image, int size, int threshold, int paralleliz
                 {
                     for(k=0; k<width-1; k++)
                     {
-                        new[CONV(j,k,width)].r = p[i][CONV(j,k,width)].r ;
-                        new[CONV(j,k,width)].g = p[i][CONV(j,k,width)].g ;
-                        new[CONV(j,k,width)].b = p[i][CONV(j,k,width)].b ;
+                        new_pixels[CONV(j,k,width)].r = p[i][CONV(j,k,width)].r ;
+                        new_pixels[CONV(j,k,width)].g = p[i][CONV(j,k,width)].g ;
+                        new_pixels[CONV(j,k,width)].b = p[i][CONV(j,k,width)].b ;
                     }
                 }
 
@@ -965,9 +965,9 @@ apply_blur_filter( animated_gif * image, int size, int threshold, int paralleliz
                             }
                         }
 
-                        new[CONV(j,k,width)].r = t_r / ( (2*size+1)*(2*size+1) ) ;
-                        new[CONV(j,k,width)].g = t_g / ( (2*size+1)*(2*size+1) ) ;
-                        new[CONV(j,k,width)].b = t_b / ( (2*size+1)*(2*size+1) ) ;
+                        new_pixels[CONV(j,k,width)].r = t_r / ( (2*size+1)*(2*size+1) ) ;
+                        new_pixels[CONV(j,k,width)].g = t_g / ( (2*size+1)*(2*size+1) ) ;
+                        new_pixels[CONV(j,k,width)].b = t_b / ( (2*size+1)*(2*size+1) ) ;
                     }
                 }
 
@@ -981,9 +981,9 @@ apply_blur_filter( animated_gif * image, int size, int threshold, int paralleliz
                 #pragma omp parallel for default(shared) private(j, k) collapse(2) schedule(guided, 16) if(height * width >= 1000)
                 for (j = start_row; j < end_row; j++) {
                     for (k = start_col; k < end_col; k++) {
-                        new[CONV(j, k, width)].r = p[i][CONV(j, k, width)].r;
-                        new[CONV(j, k, width)].g = p[i][CONV(j, k, width)].g;
-                        new[CONV(j, k, width)].b = p[i][CONV(j, k, width)].b;
+                        new_pixels[CONV(j, k, width)].r = p[i][CONV(j, k, width)].r;
+                        new_pixels[CONV(j, k, width)].g = p[i][CONV(j, k, width)].g;
+                        new_pixels[CONV(j, k, width)].b = p[i][CONV(j, k, width)].b;
                     }
                 }
 
@@ -1009,9 +1009,9 @@ apply_blur_filter( animated_gif * image, int size, int threshold, int paralleliz
                             }
                         }
 
-                        new[CONV(j,k,width)].r = t_r / ( (2*size+1)*(2*size+1) ) ;
-                        new[CONV(j,k,width)].g = t_g / ( (2*size+1)*(2*size+1) ) ;
-                        new[CONV(j,k,width)].b = t_b / ( (2*size+1)*(2*size+1) ) ;
+                        new_pixels[CONV(j,k,width)].r = t_r / ( (2*size+1)*(2*size+1) ) ;
+                        new_pixels[CONV(j,k,width)].g = t_g / ( (2*size+1)*(2*size+1) ) ;
+                        new_pixels[CONV(j,k,width)].b = t_b / ( (2*size+1)*(2*size+1) ) ;
                     }
                 }
 
@@ -1031,9 +1031,9 @@ apply_blur_filter( animated_gif * image, int size, int threshold, int paralleliz
                         float diff_g ;
                         float diff_b ;
 
-                        diff_r = (new[CONV(j  ,k  ,width)].r - p[i][CONV(j  ,k  ,width)].r) ;
-                        diff_g = (new[CONV(j  ,k  ,width)].g - p[i][CONV(j  ,k  ,width)].g) ;
-                        diff_b = (new[CONV(j  ,k  ,width)].b - p[i][CONV(j  ,k  ,width)].b) ;
+                        diff_r = (new_pixels[CONV(j  ,k  ,width)].r - p[i][CONV(j  ,k  ,width)].r) ;
+                        diff_g = (new_pixels[CONV(j  ,k  ,width)].g - p[i][CONV(j  ,k  ,width)].g) ;
+                        diff_b = (new_pixels[CONV(j  ,k  ,width)].b - p[i][CONV(j  ,k  ,width)].b) ;
 
                         if ( diff_r > threshold || -diff_r > threshold 
                                 ||
@@ -1044,9 +1044,9 @@ apply_blur_filter( animated_gif * image, int size, int threshold, int paralleliz
                             end = 0 ;
                         }
 
-                        p[i][CONV(j  ,k  ,width)].r = new[CONV(j  ,k  ,width)].r ;
-                        p[i][CONV(j  ,k  ,width)].g = new[CONV(j  ,k  ,width)].g ;
-                        p[i][CONV(j  ,k  ,width)].b = new[CONV(j  ,k  ,width)].b ;
+                        p[i][CONV(j  ,k  ,width)].r = new_pixels[CONV(j  ,k  ,width)].r ;
+                        p[i][CONV(j  ,k  ,width)].g = new_pixels[CONV(j  ,k  ,width)].g ;
+                        p[i][CONV(j  ,k  ,width)].b = new_pixels[CONV(j  ,k  ,width)].b ;
                     }
                 }
 
@@ -1057,7 +1057,7 @@ apply_blur_filter( animated_gif * image, int size, int threshold, int paralleliz
         printf( "BLUR: number of iterations for image %d\n", n_iter ) ;
     #endif
 
-            free (new) ;
+            free (new_pixels) ;
         }
     }
 
@@ -1071,7 +1071,7 @@ apply_blur_filter( animated_gif * image, int size, int threshold, int paralleliz
             height = image->height[i] ;
 
             /* Allocate array of new pixels */
-            pixel * new = (pixel *)malloc(width * height * sizeof( pixel ) ) ;
+            pixel * new_pixels = (pixel *)malloc(width * height * sizeof( pixel ) ) ;
 
 
             /* Perform at least one blur iteration */
@@ -1085,9 +1085,9 @@ apply_blur_filter( animated_gif * image, int size, int threshold, int paralleliz
                 {
                     for(k=0; k<width-1; k++)
                     {
-                        new[CONV(j,k,width)].r = p[i][CONV(j,k,width)].r ;
-                        new[CONV(j,k,width)].g = p[i][CONV(j,k,width)].g ;
-                        new[CONV(j,k,width)].b = p[i][CONV(j,k,width)].b ;
+                        new_pixels[CONV(j,k,width)].r = p[i][CONV(j,k,width)].r ;
+                        new_pixels[CONV(j,k,width)].g = p[i][CONV(j,k,width)].g ;
+                        new_pixels[CONV(j,k,width)].b = p[i][CONV(j,k,width)].b ;
                     }
                 }
 
@@ -1111,9 +1111,9 @@ apply_blur_filter( animated_gif * image, int size, int threshold, int paralleliz
                             }
                         }
 
-                        new[CONV(j,k,width)].r = t_r / ( (2*size+1)*(2*size+1) ) ;
-                        new[CONV(j,k,width)].g = t_g / ( (2*size+1)*(2*size+1) ) ;
-                        new[CONV(j,k,width)].b = t_b / ( (2*size+1)*(2*size+1) ) ;
+                        new_pixels[CONV(j,k,width)].r = t_r / ( (2*size+1)*(2*size+1) ) ;
+                        new_pixels[CONV(j,k,width)].g = t_g / ( (2*size+1)*(2*size+1) ) ;
+                        new_pixels[CONV(j,k,width)].b = t_b / ( (2*size+1)*(2*size+1) ) ;
                     }
                 }
 
@@ -1126,9 +1126,9 @@ apply_blur_filter( animated_gif * image, int size, int threshold, int paralleliz
 
                 for (j = start_row; j < end_row; j++) {
                     for (k = start_col; k < end_col; k++) {
-                        new[CONV(j, k, width)].r = p[i][CONV(j, k, width)].r;
-                        new[CONV(j, k, width)].g = p[i][CONV(j, k, width)].g;
-                        new[CONV(j, k, width)].b = p[i][CONV(j, k, width)].b;
+                        new_pixels[CONV(j, k, width)].r = p[i][CONV(j, k, width)].r;
+                        new_pixels[CONV(j, k, width)].g = p[i][CONV(j, k, width)].g;
+                        new_pixels[CONV(j, k, width)].b = p[i][CONV(j, k, width)].b;
                     }
                 }
 
@@ -1153,9 +1153,9 @@ apply_blur_filter( animated_gif * image, int size, int threshold, int paralleliz
                             }
                         }
 
-                        new[CONV(j,k,width)].r = t_r / ( (2*size+1)*(2*size+1) ) ;
-                        new[CONV(j,k,width)].g = t_g / ( (2*size+1)*(2*size+1) ) ;
-                        new[CONV(j,k,width)].b = t_b / ( (2*size+1)*(2*size+1) ) ;
+                        new_pixels[CONV(j,k,width)].r = t_r / ( (2*size+1)*(2*size+1) ) ;
+                        new_pixels[CONV(j,k,width)].g = t_g / ( (2*size+1)*(2*size+1) ) ;
+                        new_pixels[CONV(j,k,width)].b = t_b / ( (2*size+1)*(2*size+1) ) ;
                     }
                 }
 
@@ -1174,9 +1174,9 @@ apply_blur_filter( animated_gif * image, int size, int threshold, int paralleliz
                         float diff_g ;
                         float diff_b ;
 
-                        diff_r = (new[CONV(j  ,k  ,width)].r - p[i][CONV(j  ,k  ,width)].r) ;
-                        diff_g = (new[CONV(j  ,k  ,width)].g - p[i][CONV(j  ,k  ,width)].g) ;
-                        diff_b = (new[CONV(j  ,k  ,width)].b - p[i][CONV(j  ,k  ,width)].b) ;
+                        diff_r = (new_pixels[CONV(j  ,k  ,width)].r - p[i][CONV(j  ,k  ,width)].r) ;
+                        diff_g = (new_pixels[CONV(j  ,k  ,width)].g - p[i][CONV(j  ,k  ,width)].g) ;
+                        diff_b = (new_pixels[CONV(j  ,k  ,width)].b - p[i][CONV(j  ,k  ,width)].b) ;
 
                         if ( diff_r > threshold || -diff_r > threshold 
                                 ||
@@ -1187,9 +1187,9 @@ apply_blur_filter( animated_gif * image, int size, int threshold, int paralleliz
                             end = 0 ;
                         }
 
-                        p[i][CONV(j  ,k  ,width)].r = new[CONV(j  ,k  ,width)].r ;
-                        p[i][CONV(j  ,k  ,width)].g = new[CONV(j  ,k  ,width)].g ;
-                        p[i][CONV(j  ,k  ,width)].b = new[CONV(j  ,k  ,width)].b ;
+                        p[i][CONV(j  ,k  ,width)].r = new_pixels[CONV(j  ,k  ,width)].r ;
+                        p[i][CONV(j  ,k  ,width)].g = new_pixels[CONV(j  ,k  ,width)].g ;
+                        p[i][CONV(j  ,k  ,width)].b = new_pixels[CONV(j  ,k  ,width)].b ;
                     }
                 }
 
@@ -1200,7 +1200,7 @@ apply_blur_filter( animated_gif * image, int size, int threshold, int paralleliz
         printf( "BLUR: number of iterations for image %d\n", n_iter ) ;
     #endif
 
-            free (new) ;
+            free (new_pixels) ;
         }
     }
 
@@ -1288,97 +1288,6 @@ __global__ void check_threshold_kernel(pixel* d_pixels, pixel* d_new_pixels, int
     }
 }
 
-// The main function that will replace apply_blur_filter
-void apply_blur_filter_gpu(animated_gif* image, int size, int threshold) {
-    pixel** p = image->p;
-
-    // Process all images
-    for (int i = 0; i < image->n_images; i++) {
-        int width = image->width[i];
-        int height = image->height[i];
-        int total_pixels = width * height;
-        int n_iter = 0;
-
-        // Allocate memory on the host and device
-        pixel* new_pixels = (pixel*)malloc(total_pixels * sizeof(pixel));
-
-        pixel* d_pixels;
-        pixel* d_new_pixels;
-        int* d_end;
-
-        cudaMalloc(&d_pixels, total_pixels * sizeof(pixel));
-        cudaMalloc(&d_new_pixels, total_pixels * sizeof(pixel));
-        cudaMalloc(&d_end, sizeof(int));
-
-        // Copy image data to the device
-        cudaMemcpy(d_pixels, p[i], total_pixels * sizeof(pixel), cudaMemcpyHostToDevice);
-
-        // Define the regions for processing
-        int top_start = size;
-        int top_end = height / 10 - size;
-        int middle_start = height / 10 - size;
-        int middle_end = height * 0.9 + size;
-        int bottom_start = height * 0.9 + size;
-        int bottom_end = height - size;
-
-        // Define the grid and block dimensions
-        dim3 threadsPerBlock(16, 16);
-        dim3 blocksPerGrid((width + threadsPerBlock.x - 1) / threadsPerBlock.x,
-            (height + threadsPerBlock.y - 1) / threadsPerBlock.y);
-
-        // Perform at least one blur iteration
-        int end = 0;
-        int h_end = 1;
-
-        do {
-        h_end = 1;
-        n_iter++;
-
-        // Set the end flag to 1 (true) at the beginning of each iteration
-        cudaMemcpy(d_end, &h_end, sizeof(int), cudaMemcpyHostToDevice);
-
-        // Initialize new_pixels with edge values
-        cudaMemcpy(d_new_pixels, d_pixels, total_pixels * sizeof(pixel), cudaMemcpyDeviceToDevice);
-
-        // Apply blur to the top region
-        blur_kernel<<<blocksPerGrid, threadsPerBlock>>>(
-        d_pixels, d_new_pixels, width, height, size, top_start, top_end);
-
-        // Copy the middle part (no blur)
-        copy_kernel<<<blocksPerGrid, threadsPerBlock>>>(
-        d_pixels, d_new_pixels, width, height, middle_start, middle_end);
-
-        // Apply blur to the bottom region
-        blur_kernel<<<blocksPerGrid, threadsPerBlock>>>(
-        d_pixels, d_new_pixels, width, height, size, bottom_start, bottom_end);
-
-        // Check threshold and update pixels
-        check_threshold_kernel<<<blocksPerGrid, threadsPerBlock>>>(
-        d_pixels, d_new_pixels, width, height, threshold, d_end);
-
-        // Get the end flag back to host
-        cudaMemcpy(&h_end, d_end, sizeof(int), cudaMemcpyDeviceToHost);
-
-        end = h_end; // continues if end == 0
-
-        } while (threshold > 0 && !end);
-
-        // Copy the final result back to host
-        cudaMemcpy(p[i], d_pixels, total_pixels * sizeof(pixel), cudaMemcpyDeviceToHost);
-
-        // Free device memory
-        cudaFree(d_pixels);
-        cudaFree(d_new_pixels);
-        cudaFree(d_end);
-
-        // Free host memory
-        free(new_pixels);
-
-        #if SOBELF_DEBUG
-        printf("BLUR: number of iterations for image %d: %d\n", i, n_iter);
-        #endif
-    }
-}
 
 
 
@@ -1821,7 +1730,7 @@ int main( int argc, char ** argv )
     /* Check if the file is empty to write the header */
     fseek(duration_file, 0, SEEK_END);
     if (ftell(duration_file) == 0) {
-        fprintf(duration_file, "Filename,Parallelization Type,Number Images,Number Pixels,Import Duration,Gray Filter Duration,Blur Filter Duration,Sobel Filter Duration,Export Duration\n");
+        fprintf(duration_file, "Filename,Using_OpenMP,Using_GPU,Number Images,Number Pixels,Import Duration,Gray Filter Duration,Blur Filter Duration,Sobel Filter Duration,Export Duration\n");
     }
     fseek(duration_file, 0, SEEK_END);
 
@@ -1853,23 +1762,23 @@ int main( int argc, char ** argv )
 
     //// I want to set a global variable that indicates the type of parallelization
     //// and use it in the functions
-
+    
+    char * Using_OpenMP;
     int parallelization_type;
-    if (image->n_images >= 8) {
-    parallelization_type = PARALLELIZE_IMAGES; }
-    else if (image->width[0] * image->height[0] >= 1000) {
-        parallelization_type = PARALLELIZE_PIXELS;}
-    else {
+    
+    if (image->n_images >= 16) {
+        parallelization_type = PARALLELIZE_IMAGES;
+        Using_OpenMP = "Using_OpenMP on images";
+    } else if (image->width[0] * image->height[0] >= 100000) {
+        parallelization_type = PARALLELIZE_PIXELS;
+        Using_OpenMP = "Using_OpenMP on pixels";
+    } else {
         parallelization_type = NO_PARALLELIZATION;
+        Using_OpenMP = "No";
     }
 
     int nb_images = image->n_images;
     int nb_pixels = image->width[0] * image->height[0];
-
-    // printf("Nombre d'images: %d\n", image->n_images);
-    // printf("Nombre de pixels: %d\n", image->width[0] * image->height[0]);
-    // printf("Parallelization type: %d\n", parallelization_type);
-
 
 
     /* FILTER Timer start */
@@ -1885,9 +1794,18 @@ int main( int argc, char ** argv )
     printf( "Gray filter done in %lf s\n", gray_duration );
 #endif
 
+
+    char * Using_GPU ;
     /* Blur Filter Timer start */
     gettimeofday(&t1, NULL);
-    apply_blur_filter( image, 5, 20, parallelization_type) ;
+    if (nb_images * nb_pixels >= 5000000) {
+        apply_blur_filter_multi_gpu(image, 5, 20);
+        Using_GPU = "Yes";
+
+    } else {
+        apply_blur_filter( image, 5, 20, parallelization_type) ;
+        Using_GPU = "No";
+    }
     gettimeofday(&t2, NULL);
     blur_duration = (t2.tv_sec -t1.tv_sec)+((t2.tv_usec-t1.tv_usec)/1e6);
 
@@ -1925,7 +1843,7 @@ int main( int argc, char ** argv )
 #endif
 
     /* Write durations to file */
-    fprintf(duration_file, "%s,%d,%d, %d, %lf,%lf,%lf,%lf,%lf\n", input_filename, parallelization_type, nb_images, nb_pixels, import_duration, gray_duration, blur_duration, sobel_duration, export_duration);
+    fprintf(duration_file, "%s,%s,%s,%d,%d,%lf,%lf,%lf,%lf,%lf\n", input_filename, Using_OpenMP, Using_GPU, nb_images, nb_pixels, import_duration, gray_duration, blur_duration, sobel_duration, export_duration);
 
     /* Close the file */
     fclose(duration_file);
