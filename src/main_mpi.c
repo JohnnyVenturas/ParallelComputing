@@ -749,93 +749,145 @@ void apply_sobel_filter(animated_gif *image) {
 /*
  * Main entry point
  */
+#include <mpi.h>
+
+// Add this after the headers and before main
+
 int main(int argc, char **argv) {
     char *input_filename;
     char *output_filename;
-    animated_gif *image;
+    animated_gif *image = NULL;
     struct timeval t1, t2;
     double duration;
 
-    /* Check command-line arguments */
+    MPI_Init(&argc, &argv);
+    int rank, size;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
+
     if (argc < 3) {
-        fprintf(stderr, "Usage: %s input.gif output.gif \n", argv[0]);
+        if (rank == 0) fprintf(stderr, "Usage: %s input.gif output.gif\n", argv[0]);
+        MPI_Finalize();
         return 1;
     }
 
     input_filename = argv[1];
     output_filename = argv[2];
 
-    /* IMPORT Timer start */
-    gettimeofday(&t1, NULL);
-
-    /* Load file and store the pixels in array */
-    image = load_pixels(input_filename);
-    if (image == NULL) {
-        return 1;
+    if (rank == 0) {
+        gettimeofday(&t1, NULL);
+        image = load_pixels(input_filename);
+        gettimeofday(&t2, NULL);
+        duration = (t2.tv_sec - t1.tv_sec) + ((t2.tv_usec - t1.tv_usec) / 1e6);
+        printf("GIF loaded in %lf s\n", duration);
+        if (!image) MPI_Abort(MPI_COMM_WORLD, 1);
     }
 
-    /* IMPORT Timer stop */
-    gettimeofday(&t2, NULL);
+    int n_images;
+    if (rank == 0) n_images = image->n_images;
+    MPI_Bcast(&n_images, 1, MPI_INT, 0, MPI_COMM_WORLD);
 
-    duration = (t2.tv_sec - t1.tv_sec) + ((t2.tv_usec - t1.tv_usec) / 1e6);
+    int images_per_proc = n_images / size;
+    int remainder = n_images % size;
+    int start = rank * images_per_proc + ((rank < remainder) ? rank : remainder);
+    int my_count = images_per_proc + ((rank < remainder) ? 1 : 0);
+    if (rank >= n_images) my_count = 0;
 
-    printf("GIF loaded from file %s with %d image(s) in %lf s\n",
-           input_filename, image->n_images, duration);
+    MPI_Datatype pixel_type;
+    MPI_Type_contiguous(3, MPI_INT, &pixel_type);
+    MPI_Type_commit(&pixel_type);
 
-    /* FILTER Timer start */
-    gettimeofday(&t1, NULL);
+    int *my_widths = NULL, *my_heights = NULL;
+    pixel **my_pixels = NULL;
 
-    //Separating work
+    if (rank == 0) {
+        for (int p = 1; p < size; p++) {
+            int p_start = p * images_per_proc + ((p < remainder) ? p : remainder);
+            int p_count = images_per_proc + ((p < remainder) ? 1 : 0);
+            if (p_start >= n_images) continue;
 
-    MPI_Init(&argc, &argv);
-    int size, rank;
-
-    MPI_Comm_size(MPI_COMM_WORLD, &size);
-    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-    
-    if(image->n_images >= size) {
-                
-    /* Convert the pixels into grayscale */
-
-        if(rank == 0) {
-            for(int i = 1; i < size; ++i) {
-                MPI_Send(image, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm)
+            for (int i = 0; i < p_count; i++) {
+                int idx = p_start + i;
+                int w = image->width[idx], h = image->height[idx];
+                MPI_Send(&w, 1, MPI_INT, p, 0, MPI_COMM_WORLD);
+                MPI_Send(&h, 1, MPI_INT, p, 0, MPI_COMM_WORLD);
+                MPI_Send(image->p[idx], w*h, pixel_type, p, 0, MPI_COMM_WORLD);
             }
-
         }
-        apply_gray_filter(image);
 
-        /* Apply blur filter with convergence value */
-        apply_blur_filter(image, 5, 20);
-
-        /* Apply sobel filter on pixels */
-        apply_sobel_filter(image);
-
+        my_widths = malloc(my_count * sizeof(int));
+        my_heights = malloc(my_count * sizeof(int));
+        my_pixels = malloc(my_count * sizeof(pixel *));
+        for (int i = 0; i < my_count; i++) {
+            int idx = start + i;
+            my_widths[i] = image->width[idx];
+            my_heights[i] = image->height[idx];
+            my_pixels[i] = image->p[idx];
+        }
+    } else if (my_count > 0) {
+        my_widths = malloc(my_count * sizeof(int));
+        my_heights = malloc(my_count * sizeof(int));
+        my_pixels = malloc(my_count * sizeof(pixel *));
+        for (int i = 0; i < my_count; i++) {
+            MPI_Recv(&my_widths[i], 1, MPI_INT, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+            MPI_Recv(&my_heights[i], 1, MPI_INT, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+            int size = my_widths[i] * my_heights[i];
+            my_pixels[i] = malloc(size * sizeof(pixel));
+            MPI_Recv(my_pixels[i], size, pixel_type, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        }
     }
 
-    MPI_Finalize();
-
-    /* FILTER Timer stop */
-    gettimeofday(&t2, NULL);
-
-    duration = (t2.tv_sec - t1.tv_sec) + ((t2.tv_usec - t1.tv_usec) / 1e6);
-
-    printf("SOBEL done in %lf s\n", duration);
-
-    /* EXPORT Timer start */
     gettimeofday(&t1, NULL);
-
-    /* Store file from array of pixels to GIF file */
-    if (!store_pixels(output_filename, image)) {
-        return 1;
+    for (int i = 0; i < my_count; i++) {
+        animated_gif tmp = {
+            .n_images = 1,
+            .width = &my_widths[i],
+            .height = &my_heights[i],
+            .p = &my_pixels[i]
+        };
+        apply_gray_filter(&tmp);
+        apply_blur_filter(&tmp, 5, 20);
+        apply_sobel_filter(&tmp);
+    }
+    gettimeofday(&t2, NULL);
+    if (rank == 0) {
+        duration = (t2.tv_sec - t1.tv_sec) + ((t2.tv_usec - t1.tv_usec) / 1e6);
+        printf("Filters applied in %lf s\n", duration);
     }
 
-    /* EXPORT Timer stop */
-    gettimeofday(&t2, NULL);
+    if (rank != 0 && my_count > 0) {
+        for (int i = 0; i < my_count; i++) {
+            MPI_Send(my_pixels[i], my_widths[i]*my_heights[i], pixel_type, 0, 0, MPI_COMM_WORLD);
+        }
+    } else if (rank == 0) {
+        for (int p = 1; p < size; p++) {
+            int p_start = p * images_per_proc + ((p < remainder) ? p : remainder);
+            int p_count = images_per_proc + ((p < remainder) ? 1 : 0);
+            if (p_start >= n_images) continue;
 
-    duration = (t2.tv_sec - t1.tv_sec) + ((t2.tv_usec - t1.tv_usec) / 1e6);
+            for (int i = 0; i < p_count; i++) {
+                int idx = p_start + i;
+                int w = image->width[idx], h = image->height[idx];
+                MPI_Recv(image->p[idx], w*h, pixel_type, p, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+            }
+        }
+    }
 
-    printf("Export done in %lf s in file %s\n", duration, output_filename);
+    if (rank == 0) {
+        gettimeofday(&t1, NULL);
+        if (!store_pixels(output_filename, image)) return 1;
+        gettimeofday(&t2, NULL);
+        duration = (t2.tv_sec - t1.tv_sec) + ((t2.tv_usec - t1.tv_usec) / 1e6);
+        printf("Export done in %lf s\n", duration);
+    }
 
+    MPI_Type_free(&pixel_type);
+    if (rank != 0) {
+        for (int i = 0; i < my_count; i++) free(my_pixels[i]);
+        free(my_pixels);
+        free(my_widths);
+        free(my_heights);
+    }
+    MPI_Finalize();
     return 0;
 }

@@ -10,5 +10,5 @@ for i in "$INPUT_DIR"/*gif ; do
     DEST="$OUTPUT_DIR"/$(basename "$i" .gif)-sobel.gif
     echo "Running test on $i -> $DEST"
 
-    ./sobelf_mpi "$i" "$DEST"
+    salloc -n 8 mpirun ./sobelf_mpi "$i" "$DEST"
 done
