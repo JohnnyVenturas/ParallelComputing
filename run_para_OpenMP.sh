@@ -16,34 +16,33 @@ echo -e "\n Running with $OMP_NUM_THREADS threads \n"
 export PROJECT_DIRECTORY=$(pwd)
 echo -e "Project directory set to $PROJECT_DIRECTORY \n"
 
-make -f Makefile_para
+make -f Makefile_para_OpenMP
 
 INPUT_DIR=images/original
-OUTPUT_DIR=images/processed_parallelized
+OUTPUT_DIR=images/processed_parallelized_OpenMP
 mkdir $OUTPUT_DIR 2>/dev/null
 
 # Clean the durations_para.csv file
-> durations_para.csv
+> durations_para_OpenMP.csv
 
 # possible to parallelize the following loop?
-
 
 for i in $INPUT_DIR/*gif ; do
     DEST=$OUTPUT_DIR/`basename $i .gif`-sobel-para.gif
     FILENAME=$(basename $i)
     FILEDEST=$(basename $DEST)
     echo -e "\nProcessing $FILENAME -> $FILEDEST"
-
-    ./sobelf_para $i $DEST
+    
+    ./sobelf_para_OpenMP $i $DEST
 done
 
 # Check the results
 echo -e "\nResults check:"
 echo "=============="
 echo -e "Baseline:./images/baseline_result"
-echo -e "Processed:./images/processed_parallelized"
+echo -e "Processed:./images/processed_parallelized_OpenMP"
 echo ""
-./check images/processed_parallelized
+./check images/processed_parallelized_OpenMP
 
 
 # Printing the results

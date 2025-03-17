@@ -1,6 +1,6 @@
-SRC_DIR=src_para
+SRC_DIR=src_para_OpenMP
 HEADER_DIR=include
-OBJ_DIR=obj_para
+OBJ_DIR=obj_para_OpenMP
 
 CC=/usr/bin/gcc
 CFLAGS=-O3 -fopenmp -g -I$(HEADER_DIR)
@@ -28,7 +28,7 @@ OBJ= $(OBJ_DIR)/dgif_lib_para.o \
 
 .PHONY: all clean
 
-all: $(OBJ_DIR) sobelf_para
+all: $(OBJ_DIR) sobelf_para_OpenMP
 
 $(OBJ_DIR):
 	mkdir -p $(OBJ_DIR)
@@ -36,8 +36,8 @@ $(OBJ_DIR):
 $(OBJ_DIR)/%.o : $(SRC_DIR)/%.c
 	$(CC) $(CFLAGS) -c -o $@ $^
 
-sobelf_para: $(OBJ)
+sobelf_para_OpenMP: $(OBJ)
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
 clean:
-	rm -rf sobelf_para $(OBJ_DIR)
+	rm -rf sobelf_para_OpenMP $(OBJ_DIR)

@@ -1455,7 +1455,7 @@ int main( int argc, char ** argv )
     input_filename = argv[1] ;
     output_filename = argv[2] ;
 
-    duration_file = fopen("durations_para.csv", "a");
+    duration_file = fopen("durations_para_OpenMP.csv", "a");
     if (duration_file == NULL) {
         perror("Erreur lors de l'ouverture du fichier");
         return 1;
