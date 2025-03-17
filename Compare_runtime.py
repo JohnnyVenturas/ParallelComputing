@@ -48,7 +48,7 @@ def compare_durations(seq_data, para_data):
 
 if __name__ == "__main__":
     seq_file = 'durations_seq.csv'
-    para_file = 'durations_para_OpenMP.csv'
+    para_file = 'durations_para.csv'
 
     seq_data = read_csv(seq_file)
     para_data = read_csv(para_file, is_parallel=True)

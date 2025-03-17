@@ -1,0 +1,16 @@
+Filename,Parallelization Type,Number Images,Number Pixels,Import Duration,Gray Filter Duration,Blur Filter Duration,Sobel Filter Duration,Export Duration
+images/original/051009.vince.gif,2,1, 1354892, 0.013594,0.000235,0.021947,0.001913,0.127233
+images/original/1.gif,1,10, 250000, 0.015478,0.000599,0.021066,0.002428,0.112198
+images/original/200_s.gif,2,1, 40000, 0.000706,0.000408,0.000181,0.000083,0.005698
+images/original/9815573.gif,1,10, 140500, 0.010901,0.000319,0.009129,0.001243,0.060635
+images/original/australian-flag-large.gif,2,1, 720000, 0.004016,0.000116,0.008651,0.000870,0.015765
+images/original/Campusplan-Hausnr.gif,2,1, 69682912, 0.271334,0.033532,1.052995,0.097562,0.410010
+images/original/Campusplan-Mobilitaetsbeschraenkte.gif,2,1, 69689928, 0.270157,0.033679,1.106298,0.097469,0.998574
+images/original/fire.gif,1,33, 1800, 0.001293,0.000015,0.000266,0.000033,0.007751
+images/original/frame_002.gif,2,1, 263250, 0.002542,0.000047,0.001088,0.000413,0.006112
+images/original/giphy-3.gif,2,5, 2073600, 0.063601,0.004453,0.093808,0.010903,0.587891
+images/original/Mandelbrot-large.gif,1,20, 1440000, 0.126966,0.013169,0.177816,0.030580,1.322210
+images/original/porsche.gif,2,1, 64000, 0.001156,0.000016,0.000478,0.000118,0.003298
+images/original/Produits_sous_linux.gif,2,1, 760000, 0.004270,0.000125,0.008685,0.000867,0.006114
+images/original/TimelyHugeGnu.gif,1,19, 230400, 0.028930,0.001422,0.023523,0.003350,0.272999
+images/original/tumblr_myxlbtwVEb1qzt4vjo1_r14_500_large.gif,1,10, 230400, 0.013106,0.000541,0.023020,0.002298,0.268774
