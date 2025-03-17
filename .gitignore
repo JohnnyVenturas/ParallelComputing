@@ -2,3 +2,9 @@
 # images/
 
 test_openmp.c
+
+/obj_para_OpenMP/
+/obj/
+
+/images/processed_parallelized_OpenMP/
+

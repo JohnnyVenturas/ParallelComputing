@@ -28,11 +28,11 @@ mkdir $OUTPUT_DIR 2>/dev/null
 # possible to parallelize the following loop?
 
 for i in $INPUT_DIR/*gif ; do
-    DEST=$OUTPUT_DIR/`basename $i .gif`-sobel-para.gif
+    DEST=$OUTPUT_DIR/`basename $i .gif`-sobel-para-OpenMP.gif
     FILENAME=$(basename $i)
     FILEDEST=$(basename $DEST)
     echo -e "\nProcessing $FILENAME -> $FILEDEST"
-    
+
     ./sobelf_para_OpenMP $i $DEST
 done
 
