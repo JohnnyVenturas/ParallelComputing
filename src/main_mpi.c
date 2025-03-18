@@ -749,9 +749,7 @@ void apply_sobel_filter(animated_gif *image) {
 /*
  * Main entry point
  */
-#include <mpi.h>
 
-// Add this after the headers and before main
 
 int main(int argc, char **argv) {
     char *input_filename;
