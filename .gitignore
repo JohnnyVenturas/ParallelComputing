@@ -3,8 +3,8 @@
 
 test_openmp.c
 
-/obj_para_OpenMP/
+/obj_para/
 /obj/
 
-/images/processed_parallelized_OpenMP/
+/images/processed_parallelized/
 
