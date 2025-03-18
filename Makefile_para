@@ -1,73 +1,3 @@
-# SRC_DIR=src_para
-# HEADER_DIR=include
-# OBJ_DIR=obj_para
-
-# # Get MPI directory paths
-# MPI_DIR=/users/profs/2016/patrick.carribault/local/openmpi/build/../install
-# MPI_LIB=$(MPI_DIR)/lib
-# MPI_INC=$(MPI_DIR)/include
-
-# # CUDA compiler with appropriate flags
-# CC=nvcc -I.
-
-# # OpenMP flags for CUDA
-# OPENMP_FLAGS=-Xcompiler -fopenmp
-
-# # MPI flags need special handling for nvcc
-# MPI_INC_FLAGS=-Xcompiler -I$(MPI_INC)
-# MPI_LIB_FLAGS=-L$(MPI_LIB) -lmpi -Xcompiler -pthread
-
-# # Combine flags
-# CFLAGS=-O3 -g -I$(HEADER_DIR) $(OPENMP_FLAGS) $(MPI_INC_FLAGS)
-# LDFLAGS=-lm $(OPENMP_FLAGS) $(MPI_LIB_FLAGS)
-
-# SRC= $(SRC_DIR)/dgif_lib_para.c \
-#      $(SRC_DIR)/egif_lib_para.c \
-#      $(SRC_DIR)/gif_err_para.c \
-#      $(SRC_DIR)/gif_font_para.c \
-#      $(SRC_DIR)/gif_hash_para.c \
-#      $(SRC_DIR)/gifalloc_para.c \
-#      $(SRC_DIR)/main_para.cu \
-#      $(SRC_DIR)/openbsd-reallocarray_para.c \
-#      $(SRC_DIR)/quantize_para.c
-
-# OBJ= $(OBJ_DIR)/dgif_lib_para.o \
-#      $(OBJ_DIR)/egif_lib_para.o \
-#      $(OBJ_DIR)/gif_err_para.o \
-#      $(OBJ_DIR)/gif_font_para.o \
-#      $(OBJ_DIR)/gif_hash_para.o \
-#      $(OBJ_DIR)/gifalloc_para.o \
-#      $(OBJ_DIR)/main_para.o \
-#      $(OBJ_DIR)/openbsd-reallocarray_para.o \
-#      $(OBJ_DIR)/quantize_para.o
-
-# .PHONY: all clean run
-
-# all: $(OBJ_DIR) sobel_para
-
-# $(OBJ_DIR):
-# 	mkdir -p $(OBJ_DIR)
-
-# # Rule for C files
-# $(OBJ_DIR)/%.o: $(SRC_DIR)/%.c
-# 	$(CC) $(CFLAGS) -c -o $@ $<
-
-# # Rule for CUDA files
-# $(OBJ_DIR)/%.o: $(SRC_DIR)/%.cu
-# 	$(CC) $(CFLAGS) -c -o $@ $<
-
-# sobel_para: $(OBJ)
-# 	$(CC) -o $@ $^ $(LDFLAGS)
-
-# # Run with MPI (default 4 processes)
-# run: sobel_para
-# 	mpirun -np 4 ./sobel_para $(ARGS)
-
-# clean:
-# 	rm -rf sobel_para $(OBJ_DIR)
-
-
-
 SRC_DIR=src_para
 HEADER_DIR=include
 OBJ_DIR=obj_para
@@ -152,7 +82,7 @@ $(OBJ_DIR):
 $(OBJ_DIR_NO_MPI):
 	mkdir -p $(OBJ_DIR_NO_MPI)
 
-# Rules for MPI version
+### Rules for MPI version
 # Rule for C files (MPI version)
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.c
 	$(CC) $(CFLAGS) -c -o $@ $<
@@ -161,7 +91,7 @@ $(OBJ_DIR)/%.o: $(SRC_DIR)/%.c
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.cu
 	$(CC) $(CFLAGS) -c -o $@ $<
 
-# Rules for non-MPI version
+#### Rules for non-MPI version
 # Rule for C files (non-MPI version)
 $(OBJ_DIR_NO_MPI)/%.o: $(SRC_DIR)/%.c
 	$(CC) $(CFLAGS_NO_MPI) -c -o $@ $<
@@ -181,13 +111,9 @@ sobel_para: $(OBJ)
 sobel_para_without_MPI: $(OBJ_NO_MPI)
 	$(CC) -o $@ $^ $(LDFLAGS_NO_MPI)
 
-# Run with MPI (default 4 processes)
-run: sobel_para
-	mpirun -np 4 ./sobel_para $(ARGS)
 
-# Run without MPI
-run_no_mpi: sobel_para_without_MPI
-	./sobel_para_without_MPI $(ARGS)
+
+
 
 clean:
 	rm -rf sobel_para sobel_para_without_MPI $(OBJ_DIR) $(OBJ_DIR_NO_MPI)
