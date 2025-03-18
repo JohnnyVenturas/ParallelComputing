@@ -35,12 +35,12 @@ $(OBJ_DIR):
 $(OBJ_DIR)/%.o : $(SRC_DIR)/%.c
 	$(CC) $(CFLAGS) -c -o $@ $^
 
-sobelf: $(OBJ_MAIN)
+sobel: $(OBJ_MAIN)
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
-sobelf_mpi: $(OBJ_MAIN_MPI)
+sobel_mpi: $(OBJ_MAIN_MPI)
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
 clean:
-	rm -f sobelf sobelf2 $(OBJ_DIR)/*.o
+	rm -f sobel sobel2 $(OBJ_DIR)/*.o
 

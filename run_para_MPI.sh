@@ -10,7 +10,7 @@ if [ -z "$1" ]; then
 fi
 
 export MPI_NUM_NODES=$1
-echo -e "\n Running with $MPI_NUM_NODES threads \n"
+echo -e "\n Running with $MPI_NUM_NODES nodes \n"
 
 # Set the project directory
 export PROJECT_DIRECTORY=$(pwd)
@@ -49,3 +49,5 @@ echo ""
 echo -e "\n Printing results... \n"
 python Compare_runtime.py
 
+# plot the results
+python plot.py

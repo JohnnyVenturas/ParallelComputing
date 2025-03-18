@@ -35,7 +35,7 @@ $(OBJ_DIR):
 $(OBJ_DIR)/%.o : $(SRC_DIR)/%.c
 	$(CC) $(CFLAGS) -c -o $@ $^
 
-sobelf: $(OBJ_MAIN)
+sobel: $(OBJ_MAIN)
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
 
