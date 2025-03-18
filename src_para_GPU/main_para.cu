@@ -676,6 +676,8 @@ __global__ void findPixelIndicesInColormap(
     }
 }
 
+
+
 /* This is the main function - we'll only accelerate the final colormap matching */
 //// Does not produce the same output...////
 int store_pixels_gpu(char* filename, animated_gif* image)
@@ -1280,6 +1282,11 @@ void apply_gray_filter_gpu_batch(animated_gif *image) {
 }
 
 
+
+
+
+
+
 ///////////// Possibility to parallelize this function ///////////////////
 void
 apply_gray_filter( animated_gif * image )
@@ -1357,152 +1364,18 @@ void apply_gray_line( animated_gif * image )
 
 
 
-///////////// Possibility to parallelize this function ///////////////////
-void
-apply_blur_filter( animated_gif * image, int size, int threshold )
-{
-    int i, j, k ;
-    int width, height ;
-    int end = 0 ;
-    int n_iter = 0 ;
-
-    pixel ** p ;
-    pixel * new_pixels ;
-
-    /* Get the pixels of all images */
-    p = image->p ;
 
 
-    /* Process all images */
-    for ( i = 0 ; i < image->n_images ; i++ )
-    {
-        n_iter = 0 ;
-        width = image->width[i] ;
-        height = image->height[i] ;
-
-        /* Allocate array of new pixels */
-        new_pixels = (pixel *)malloc(width * height * sizeof( pixel ) ) ;
 
 
-        /* Perform at least one blur iteration */
-        do
-        {
-            end = 1 ;
-            n_iter++ ;
 
 
-	for(j=0; j<height-1; j++)
-	{
-		for(k=0; k<width-1; k++)
-		{
-			new_pixels[CONV(j,k,width)].r = p[i][CONV(j,k,width)].r ;
-			new_pixels[CONV(j,k,width)].g = p[i][CONV(j,k,width)].g ;
-			new_pixels[CONV(j,k,width)].b = p[i][CONV(j,k,width)].b ;
-		}
-	}
 
-            /* Apply blur on top part of image (10%) */
-            for(j=size; j<height/10-size; j++)
-            {
-                for(k=size; k<width-size; k++)
-                {
-                    int stencil_j, stencil_k ;
-                    int t_r = 0 ;
-                    int t_g = 0 ;
-                    int t_b = 0 ;
 
-                    for ( stencil_j = -size ; stencil_j <= size ; stencil_j++ )
-                    {
-                        for ( stencil_k = -size ; stencil_k <= size ; stencil_k++ )
-                        {
-                            t_r += p[i][CONV(j+stencil_j,k+stencil_k,width)].r ;
-                            t_g += p[i][CONV(j+stencil_j,k+stencil_k,width)].g ;
-                            t_b += p[i][CONV(j+stencil_j,k+stencil_k,width)].b ;
-                        }
-                    }
 
-                    new_pixels[CONV(j,k,width)].r = t_r / ( (2*size+1)*(2*size+1) ) ;
-                    new_pixels[CONV(j,k,width)].g = t_g / ( (2*size+1)*(2*size+1) ) ;
-                    new_pixels[CONV(j,k,width)].b = t_b / ( (2*size+1)*(2*size+1) ) ;
-                }
-            }
 
-            /* Copy the middle part of the image */
-            for(j=height/10-size; j<height*0.9+size; j++)
-            {
-                for(k=size; k<width-size; k++)
-                {
-                    new_pixels[CONV(j,k,width)].r = p[i][CONV(j,k,width)].r ; 
-                    new_pixels[CONV(j,k,width)].g = p[i][CONV(j,k,width)].g ; 
-                    new_pixels[CONV(j,k,width)].b = p[i][CONV(j,k,width)].b ; 
-                }
-            }
 
-            /* Apply blur on the bottom part of the image (10%) */
-            for(j=height*0.9+size; j<height-size; j++)
-            {
-                for(k=size; k<width-size; k++)
-                {
-                    int stencil_j, stencil_k ;
-                    int t_r = 0 ;
-                    int t_g = 0 ;
-                    int t_b = 0 ;
 
-                    for ( stencil_j = -size ; stencil_j <= size ; stencil_j++ )
-                    {
-                        for ( stencil_k = -size ; stencil_k <= size ; stencil_k++ )
-                        {
-                            t_r += p[i][CONV(j+stencil_j,k+stencil_k,width)].r ;
-                            t_g += p[i][CONV(j+stencil_j,k+stencil_k,width)].g ;
-                            t_b += p[i][CONV(j+stencil_j,k+stencil_k,width)].b ;
-                        }
-                    }
-
-                    new_pixels[CONV(j,k,width)].r = t_r / ( (2*size+1)*(2*size+1) ) ;
-                    new_pixels[CONV(j,k,width)].g = t_g / ( (2*size+1)*(2*size+1) ) ;
-                    new_pixels[CONV(j,k,width)].b = t_b / ( (2*size+1)*(2*size+1) ) ;
-                }
-            }
-
-            for(j=1; j<height-1; j++)
-            {
-                for(k=1; k<width-1; k++)
-                {
-
-                    float diff_r ;
-                    float diff_g ;
-                    float diff_b ;
-
-                    diff_r = (new_pixels[CONV(j  ,k  ,width)].r - p[i][CONV(j  ,k  ,width)].r) ;
-                    diff_g = (new_pixels[CONV(j  ,k  ,width)].g - p[i][CONV(j  ,k  ,width)].g) ;
-                    diff_b = (new_pixels[CONV(j  ,k  ,width)].b - p[i][CONV(j  ,k  ,width)].b) ;
-
-                    if ( diff_r > threshold || -diff_r > threshold 
-                            ||
-                             diff_g > threshold || -diff_g > threshold
-                             ||
-                              diff_b > threshold || -diff_b > threshold
-                       ) {
-                        end = 0 ;
-                    }
-
-                    p[i][CONV(j  ,k  ,width)].r = new_pixels[CONV(j  ,k  ,width)].r ;
-                    p[i][CONV(j  ,k  ,width)].g = new_pixels[CONV(j  ,k  ,width)].g ;
-                    p[i][CONV(j  ,k  ,width)].b = new_pixels[CONV(j  ,k  ,width)].b ;
-                }
-            }
-
-        }
-        while ( threshold > 0 && !end ) ;
-
-#if SOBELF_DEBUG
-	printf( "BLUR: number of iterations for image %d\n", n_iter ) ;
-#endif
-
-        free (new_pixels) ;
-    }
-
-}
 
 
 
@@ -1579,98 +1452,6 @@ __global__ void check_threshold_kernel(pixel* d_pixels, pixel* d_new_pixels, int
         d_pixels[idx].r = d_new_pixels[idx].r;
         d_pixels[idx].g = d_new_pixels[idx].g;
         d_pixels[idx].b = d_new_pixels[idx].b;
-    }
-}
-
-// The main function that will replace apply_blur_filter
-void apply_blur_filter_gpu(animated_gif* image, int size, int threshold) {
-    pixel** p = image->p;
-
-    // Process all images
-    for (int i = 0; i < image->n_images; i++) {
-        int width = image->width[i];
-        int height = image->height[i];
-        int total_pixels = width * height;
-        int n_iter = 0;
-
-        // Allocate memory on the host and device
-        pixel* new_pixels = (pixel*)malloc(total_pixels * sizeof(pixel));
-
-        pixel* d_pixels;
-        pixel* d_new_pixels;
-        int* d_end;
-
-        cudaMalloc(&d_pixels, total_pixels * sizeof(pixel));
-        cudaMalloc(&d_new_pixels, total_pixels * sizeof(pixel));
-        cudaMalloc(&d_end, sizeof(int));
-
-        // Copy image data to the device
-        cudaMemcpy(d_pixels, p[i], total_pixels * sizeof(pixel), cudaMemcpyHostToDevice);
-
-        // Define the regions for processing
-        int top_start = size;
-        int top_end = height / 10 - size;
-        int middle_start = height / 10 - size;
-        int middle_end = height * 0.9 + size;
-        int bottom_start = height * 0.9 + size;
-        int bottom_end = height - size;
-
-        // Define the grid and block dimensions
-        dim3 threadsPerBlock(16, 16);
-        dim3 blocksPerGrid((width + threadsPerBlock.x - 1) / threadsPerBlock.x,
-            (height + threadsPerBlock.y - 1) / threadsPerBlock.y);
-
-        // Perform at least one blur iteration
-        int end = 0;
-        int h_end = 1;
-
-        do {
-        h_end = 1;
-        n_iter++;
-
-        // Set the end flag to 1 (true) at the beginning of each iteration
-        cudaMemcpy(d_end, &h_end, sizeof(int), cudaMemcpyHostToDevice);
-
-        // Initialize new_pixels with edge values
-        cudaMemcpy(d_new_pixels, d_pixels, total_pixels * sizeof(pixel), cudaMemcpyDeviceToDevice);
-
-        // Apply blur to the top region
-        blur_kernel<<<blocksPerGrid, threadsPerBlock>>>(
-        d_pixels, d_new_pixels, width, height, size, top_start, top_end);
-
-        // Copy the middle part (no blur)
-        copy_kernel<<<blocksPerGrid, threadsPerBlock>>>(
-        d_pixels, d_new_pixels, width, height, middle_start, middle_end);
-
-        // Apply blur to the bottom region
-        blur_kernel<<<blocksPerGrid, threadsPerBlock>>>(
-        d_pixels, d_new_pixels, width, height, size, bottom_start, bottom_end);
-
-        // Check threshold and update pixels
-        check_threshold_kernel<<<blocksPerGrid, threadsPerBlock>>>(
-        d_pixels, d_new_pixels, width, height, threshold, d_end);
-
-        // Get the end flag back to host
-        cudaMemcpy(&h_end, d_end, sizeof(int), cudaMemcpyDeviceToHost);
-
-        end = h_end; // continues if end == 0
-
-        } while (threshold > 0 && !end);
-
-        // Copy the final result back to host
-        cudaMemcpy(p[i], d_pixels, total_pixels * sizeof(pixel), cudaMemcpyDeviceToHost);
-
-        // Free device memory
-        cudaFree(d_pixels);
-        cudaFree(d_new_pixels);
-        cudaFree(d_end);
-
-        // Free host memory
-        free(new_pixels);
-
-        #if SOBELF_DEBUG
-        printf("BLUR: number of iterations for image %d: %d\n", i, n_iter);
-        #endif
     }
 }
 
@@ -1837,83 +1618,8 @@ void apply_blur_filter_multi_gpu(animated_gif* image, int size, int threshold) {
 
 
 
-///////// Possibility to parallelize this function /////////////
-void
-apply_sobel_filter( animated_gif * image )
-{
-    int i, j, k ;
-    int width, height ;
-
-    pixel ** p ;
-
-    p = image->p ;
-
-    for ( i = 0 ; i < image->n_images ; i++ )
-    {
-        width = image->width[i] ;
-        height = image->height[i] ;
-
-        pixel * sobel ;
-
-        sobel = (pixel *)malloc(width * height * sizeof( pixel ) ) ;
-
-        for(j=1; j<height-1; j++)
-        {
-            for(k=1; k<width-1; k++)
-            {
-                int pixel_blue_no, pixel_blue_n, pixel_blue_ne;
-                int pixel_blue_so, pixel_blue_s, pixel_blue_se;
-                int pixel_blue_o , pixel_blue  , pixel_blue_e ;
-
-                float deltaX_blue ;
-                float deltaY_blue ;
-                float val_blue;
-
-                pixel_blue_no = p[i][CONV(j-1,k-1,width)].b ;
-                pixel_blue_n  = p[i][CONV(j-1,k  ,width)].b ;
-                pixel_blue_ne = p[i][CONV(j-1,k+1,width)].b ;
-                pixel_blue_so = p[i][CONV(j+1,k-1,width)].b ;
-                pixel_blue_s  = p[i][CONV(j+1,k  ,width)].b ;
-                pixel_blue_se = p[i][CONV(j+1,k+1,width)].b ;
-                pixel_blue_o  = p[i][CONV(j  ,k-1,width)].b ;
-                pixel_blue    = p[i][CONV(j  ,k  ,width)].b ;
-                pixel_blue_e  = p[i][CONV(j  ,k+1,width)].b ;
-
-                deltaX_blue = -pixel_blue_no + pixel_blue_ne - 2*pixel_blue_o + 2*pixel_blue_e - pixel_blue_so + pixel_blue_se;             
-
-                deltaY_blue = pixel_blue_se + 2*pixel_blue_s + pixel_blue_so - pixel_blue_ne - 2*pixel_blue_n - pixel_blue_no;
-
-                val_blue = sqrt(deltaX_blue * deltaX_blue + deltaY_blue * deltaY_blue)/4;
 
 
-                if ( val_blue > 50 ) 
-                {
-                    sobel[CONV(j  ,k  ,width)].r = 255 ;
-                    sobel[CONV(j  ,k  ,width)].g = 255 ;
-                    sobel[CONV(j  ,k  ,width)].b = 255 ;
-                } else
-                {
-                    sobel[CONV(j  ,k  ,width)].r = 0 ;
-                    sobel[CONV(j  ,k  ,width)].g = 0 ;
-                    sobel[CONV(j  ,k  ,width)].b = 0 ;
-                }
-            }
-        }
-
-        for(j=1; j<height-1; j++)
-        {
-            for(k=1; k<width-1; k++)
-            {
-                p[i][CONV(j  ,k  ,width)].r = sobel[CONV(j  ,k  ,width)].r ;
-                p[i][CONV(j  ,k  ,width)].g = sobel[CONV(j  ,k  ,width)].g ;
-                p[i][CONV(j  ,k  ,width)].b = sobel[CONV(j  ,k  ,width)].b ;
-            }
-        }
-
-        free (sobel) ;
-    }
-
-}
 
 
 
@@ -2041,6 +1747,16 @@ void apply_sobel_filter_gpu(animated_gif* image) {
     }
     free(streams);
 }
+
+
+
+
+
+
+
+
+
+
 
 
 
