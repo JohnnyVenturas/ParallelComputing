@@ -45,6 +45,9 @@ echo ""
 ./check images/processed_parallelized
 
 
-# Printing the results
+# Printing the results in terminal
 echo -e "\n Printing results... \n"
 python Compare_runtime.py
+
+# Plot visually 
+python plot.py
