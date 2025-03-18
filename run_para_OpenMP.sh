@@ -28,12 +28,12 @@ mkdir $OUTPUT_DIR 2>/dev/null
 # possible to parallelize the following loop?
 
 for i in $INPUT_DIR/*gif ; do
-    DEST=$OUTPUT_DIR/`basename $i .gif`-sobel-para-MPI.gif
+    DEST=$OUTPUT_DIR/`basename $i .gif`-sobel.gif
     FILENAME=$(basename $i)
     FILEDEST=$(basename $DEST)
     echo -e "\nProcessing $FILENAME -> $FILEDEST"
 
-    salloc -N $MPI_NUM_NODES mpirun./sobelf_para_MPI $i $DEST
+    salloc -N $MPI_NUM_NODES mpirun ./sobelf_mpi $i $DEST
 done
 
 # Check the results

@@ -23,12 +23,13 @@ if [ ! -d "$target_directory" ]; then
 	echo "Exiting"
 	exit 1
 fi
-	
-	
+
 
 for i in images/baseline_result/*; do
 	image_name=$(basename "$i")
-	cmp  "$i" "${target_directory}"/"$(basename "${i}")" &>/dev/null && printf "(SUCCESS)\t\t" || printf "   (FAIL)\t\t"
+	echo "$image_name"
+
+	cmp  "$i" "${target_directory}"/"$image_name"  && printf "(SUCCESS)\t\t" || printf "   (FAIL)\t\t"
 	printf "Testing image %s from folder %s against %s\n" "$image_name" "images/baseline_result"  "$target_directory"
 done
 
