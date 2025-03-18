@@ -892,7 +892,7 @@ int main( int argc, char ** argv )
     /* Check if the file is empty to write the header */
     fseek(duration_file, 0, SEEK_END);
     if (ftell(duration_file) == 0) {
-        fprintf(duration_file, "Filename,Import Duration,Gray Filter Duration,Blur Filter Duration,Sobel Filter Duration,Export Duration\n");
+        fprintf(duration_file, "Filename,Number Images,Number Pixels,Import Duration,Gray Filter Duration,Blur Filter Duration,Sobel Filter Duration,Export Duration\n");
     }
     fseek(duration_file, 0, SEEK_END);
 
@@ -965,8 +965,13 @@ int main( int argc, char ** argv )
     printf( "Export done in %lf s in file %s\n", export_duration, output_filename );
 #endif
 
+    // Get number of images and number of pixels
+    int nb_images = image->n_images;
+    int nb_pixels = image->width[0] * image->height[0];
+
+
     /* Write durations to file */
-    fprintf(duration_file, "%s,%lf,%lf,%lf,%lf,%lf\n", input_filename, import_duration, gray_duration, blur_duration, sobel_duration, export_duration);
+    fprintf(duration_file, "%s,%d,%d,%lf,%lf,%lf,%lf,%lf\n", input_filename, nb_images, nb_pixels, import_duration, gray_duration, blur_duration, sobel_duration, export_duration);
 
     /* Close the file */
     fclose(duration_file);
