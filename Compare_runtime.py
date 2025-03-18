@@ -12,9 +12,13 @@ def read_csv(file_path, is_parallel=False):
                 using_openmp = row['Using_OpenMP'].strip()
                 using_gpu = row['Using_GPU'].strip()
                 
+                # Handle the case with or without MPI_Processes column
+                mpi_processes = int(row.get('MPI_Processes', 0)) if 'MPI_Processes' in row else 0
+                
                 data[row['Filename']] = {
                     'Using_OpenMP': using_openmp,
                     'Using_GPU': using_gpu,
+                    'MPI_Processes': mpi_processes,
                     'Number Images': int(row['Number Images']),
                     'Number Pixels': int(row['Number Pixels']),
                     'Import Duration': float(row['Import Duration']),
@@ -39,6 +43,7 @@ def compare_durations(seq_data, para_data):
             basename = os.path.basename(filename)
             num_images = para_data[filename]['Number Images']
             num_pixels = para_data[filename]['Number Pixels']
+            mpi_processes = para_data[filename]['MPI_Processes']
             
             # Simplifie l'affichage OpenMP pour correspondre aux besoins
             openmp_value = para_data[filename]['Using_OpenMP']
@@ -50,11 +55,12 @@ def compare_durations(seq_data, para_data):
                 openmp_display = "on pixels"
             else:
                 openmp_display = openmp_value
-                
-            # Affiche les informations sur trois lignes
+            
+            # Affiche les informations sur quatre lignes
             print(f"\n Comparing {basename} (Images: {num_images}, Pixels: {num_pixels})")
             print(f" OpenMP: {openmp_display}")
             print(f" GPU: {para_data[filename]['Using_GPU']}")
+            print(f" MPI Processes: {mpi_processes}")
             
             for key in ["Import Duration", "Gray Filter Duration", "Blur Filter Duration", "Sobel Filter Duration", "Export Duration"]:
                 seq_duration = seq_data[filename][key]
@@ -78,6 +84,3 @@ if __name__ == "__main__":
     para_data = read_csv(para_file, is_parallel=True)
     
     compare_durations(seq_data, para_data)
-
-
-    

@@ -2016,8 +2016,8 @@ apply_sobel_filter( animated_gif * image, int parallelization_type)
 
 
 
-
-/*
+///////// Working version /////////
+/*/*
  * Main entry point
  */
 int main( int argc, char ** argv )
@@ -2067,7 +2067,7 @@ int main( int argc, char ** argv )
         /* Check if the file is empty to write the header */
         fseek(duration_file, 0, SEEK_END);
         if (ftell(duration_file) == 0) {
-            fprintf(duration_file, "Filename,Using_OpenMP,Using_GPU,Number Images,Number Pixels,Import Duration,Gray Filter Duration,Blur Filter Duration,Sobel Filter Duration,Export Duration\n");
+            fprintf(duration_file, "Filename,Using_OpenMP,Using_GPU,MPI_Processes,Number Images,Number Pixels,Import Duration,Gray Filter Duration,Blur Filter Duration,Sobel Filter Duration,Export Duration\n");
         }
         fseek(duration_file, 0, SEEK_END);
 
@@ -2288,9 +2288,9 @@ int main( int argc, char ** argv )
         printf("Export done in %lf s in file %s\n", export_duration, output_filename);
 #endif
 
-        /* Write durations to file */
-        fprintf(duration_file, "%s,%s,%s,%d,%d,%lf,%lf,%lf,%lf,%lf\n", 
-                input_filename, Using_OpenMP, Using_GPU, n_images, pixel_count, 
+        /* Write durations to file with MPI process count */
+        fprintf(duration_file, "%s,%s,%s,%d,%d,%d,%lf,%lf,%lf,%lf,%lf\n", 
+                input_filename, Using_OpenMP, Using_GPU, size, n_images, pixel_count, 
                 import_duration, gray_duration, blur_duration, sobel_duration, export_duration);
 
         /* Close the file */
@@ -2303,3 +2303,7 @@ int main( int argc, char ** argv )
     MPI_Finalize();
     return 0;
 }
+
+
+
+
