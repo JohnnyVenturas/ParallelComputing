@@ -31,6 +31,9 @@
 
 ### Basic Command
 ```bash
+# Setup environment variables
+source ./set_env.sh
+
 # Sequential processing
 ./run_test.sh
 
