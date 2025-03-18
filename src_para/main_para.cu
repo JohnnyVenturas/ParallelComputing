@@ -13,6 +13,9 @@
 // CUDA-specific headers
 #include <cuda.h>
 
+// MPI headers
+#include <mpi.h>
+
 /* Set this macro to 1 to enable debugging information */
 #define SOBELF_DEBUG 0
 
@@ -1948,6 +1951,72 @@ apply_sobel_filter( animated_gif * image, int parallelization_type)
 
 
 
+// void apply_sobel_filter(animated_gif *image) {
+//     #pragma omp parallel  
+//     {
+//         for (int i = 0; i < image->n_images; i++) {
+//             const int width = image->width[i];
+//             const int height = image->height[i];
+//             pixel *pixels = image->p[i];
+//             pixel *sobel = malloc(width * height * sizeof(pixel));
+
+//             #pragma omp for collapse(2) schedule(guided) nowait
+//             for (int j = 1; j < height - 1; j++) {
+//                 #pragma omp simd aligned(pixels, sobel : 64)
+//                 for (int k = 1; k < width - 1; k++) {
+//                     const int conv_idx = CONV(j, k, width);
+                    
+                    
+//                     const int offsets[] = {
+//                         CONV(j-1, k-1, width), CONV(j-1, k, width), CONV(j-1, k+1, width),
+//                         CONV(j+1, k-1, width), CONV(j+1, k, width), CONV(j+1, k+1, width),
+//                         CONV(j, k-1, width), conv_idx, CONV(j, k+1, width)
+//                     };
+                    
+//                     const int b_no = pixels[offsets[0]].b;
+//                     const int b_n  = pixels[offsets[1]].b;
+//                     const int b_ne = pixels[offsets[2]].b;
+//                     const int b_so = pixels[offsets[3]].b;
+//                     const int b_s  = pixels[offsets[4]].b;
+//                     const int b_se = pixels[offsets[5]].b;
+//                     const int b_o  = pixels[offsets[6]].b;
+//                     const int b_e  = pixels[offsets[8]].b;
+
+                    
+//                     const float deltaX = -b_no + b_ne - 2*b_o + 2*b_e - b_so + b_se;
+//                     const float deltaY = b_se + 2*b_s + b_so - b_ne - 2*b_n - b_no;
+//                     const float val = sqrtf(deltaX*deltaX + deltaY*deltaY) / 4.0f;
+
+                    
+//                     const unsigned char result = (val > 50.0f) ? 255 : 0;
+//                     sobel[conv_idx] = (pixel){result, result, result};
+//                 }
+//             }
+
+//             #pragma omp barrier
+
+//             #pragma omp for simd collapse(2) schedule(static) aligned(pixels, sobel : 64)
+//             for (int j = 1; j < height - 1; j++) {
+//                 for (int k = 1; k < width - 1; k++) {
+//                     pixels[CONV(j, k, width)] = sobel[CONV(j, k, width)];
+//                 }
+//             }
+
+//             free(sobel);
+//         }
+//     }
+// }
+
+
+
+
+
+
+
+
+
+
+
 /*
  * Main entry point
  */
@@ -1959,144 +2028,278 @@ int main( int argc, char ** argv )
     struct timeval t1, t2;
     double import_duration, gray_duration, blur_duration, sobel_duration, filter_duration, export_duration;
     FILE *duration_file;
+    
+    // Variables for OpenMP/GPU usage tracking - declare at top level for proper scope
+    char * Using_OpenMP = NULL;
+    char * Using_GPU = NULL;
+    int parallelization_type = 0;
+    int nb_images = 0;
+    int nb_pixels = 0;
+
+    /* Initialize MPI */
+    MPI_Init(&argc, &argv);
+    int rank, size;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
 
     /* Check command-line arguments */
     if ( argc < 3 )
     {
-        fprintf( stderr, "Usage: %s input.gif output.gif \n", argv[0] ) ;
+        if (rank == 0) {
+            fprintf( stderr, "Usage: %s input.gif output.gif \n", argv[0] ) ;
+        }
+        MPI_Finalize();
         return 1 ;
     }
 
     input_filename = argv[1] ;
     output_filename = argv[2] ;
 
-    duration_file = fopen("durations_para.csv", "a");
-    if (duration_file == NULL) {
-        perror("Erreur lors de l'ouverture du fichier");
-        return 1;
-    }
+    /* Only the root process handles file I/O */
+    if (rank == 0) {
+        duration_file = fopen("durations_para.csv", "a");
+        if (duration_file == NULL) {
+            perror("Erreur lors de l'ouverture du fichier");
+            MPI_Abort(MPI_COMM_WORLD, 1);
+            return 1;
+        }
 
-    /* Check if the file is empty to write the header */
-    fseek(duration_file, 0, SEEK_END);
-    if (ftell(duration_file) == 0) {
-        fprintf(duration_file, "Filename,Using_OpenMP,Using_GPU,Number Images,Number Pixels,Import Duration,Gray Filter Duration,Blur Filter Duration,Sobel Filter Duration,Export Duration\n");
-    }
-    fseek(duration_file, 0, SEEK_END);
+        /* Check if the file is empty to write the header */
+        fseek(duration_file, 0, SEEK_END);
+        if (ftell(duration_file) == 0) {
+            fprintf(duration_file, "Filename,Using_OpenMP,Using_GPU,Number Images,Number Pixels,Import Duration,Gray Filter Duration,Blur Filter Duration,Sobel Filter Duration,Export Duration\n");
+        }
+        fseek(duration_file, 0, SEEK_END);
 
-    /* IMPORT Timer start */
-    gettimeofday(&t1, NULL);
+        /* IMPORT Timer start */
+        gettimeofday(&t1, NULL);
 
-    /* Load file and store the pixels in array */
-    image = load_pixels( input_filename ) ;
-    if ( image == NULL ) { return 1 ; }
+        /* Load file and store the pixels in array */
+        image = load_pixels( input_filename ) ;
+        if ( image == NULL ) { 
+            MPI_Abort(MPI_COMM_WORLD, 1);
+            return 1; 
+        }
 
-    /* IMPORT Timer stop */
-    gettimeofday(&t2, NULL);
+        /* IMPORT Timer stop */
+        gettimeofday(&t2, NULL);
 
-    import_duration = (t2.tv_sec -t1.tv_sec)+((t2.tv_usec-t1.tv_usec)/1e6);
+        import_duration = (t2.tv_sec - t1.tv_sec) + ((t2.tv_usec - t1.tv_usec) / 1e6);
 
 #if PRINT_TIME
-    printf( "GIF loaded from file %s with %d image(s) in %lf s\n", 
-            input_filename, image->n_images, import_duration ) ;
+        printf( "GIF loaded from file %s with %d image(s) in %lf s\n", 
+                input_filename, image->n_images, import_duration ) ;
 #endif
 
-    //// Code to know if we should parallelize on the number of images in the gif 
-    //// or the number of pixels in an image
+        //// Determine parallelization type for OpenMP
+        if (image->n_images >= 16) {
+            parallelization_type = PARALLELIZE_IMAGES;
+            Using_OpenMP = "Using_OpenMP on images";
+        } else if (image->width[0] * image->height[0] >= 100000) {
+            parallelization_type = PARALLELIZE_PIXELS;
+            Using_OpenMP = "Using_OpenMP on pixels";
+        } else {
+            parallelization_type = NO_PARALLELIZATION;
+            Using_OpenMP = "No";
+        }
 
-    //// if we parallelize on the number of images, we can't parallelize on the pixels
-    //// if we parallelize on the pixels, we can't parallelize on the images
+        nb_images = image->n_images;
+        nb_pixels = image->width[0] * image->height[0];
 
-    //// if image->n_images >= 8, we parallelize on the images
-    //// if image->width * image->height >= 1000, we parallelize on the pixels
+        /* Gray Filter Timer start */
+        gettimeofday(&t1, NULL);
+        apply_gray_filter( image, parallelization_type) ;
+        gettimeofday(&t2, NULL);
+        gray_duration = (t2.tv_sec - t1.tv_sec) + ((t2.tv_usec - t1.tv_usec) / 1e6);
 
-    //// I want to set a global variable that indicates the type of parallelization
-    //// and use it in the functions
+#if PRINT_TIME
+        printf( "Gray filter done in %lf s\n", gray_duration );
+#endif
+
+        /* Blur Filter Timer start */
+        gettimeofday(&t1, NULL);
+        if (nb_images * nb_pixels >= 5000000) {
+            apply_blur_filter_multi_gpu(image, 5, 20);
+            Using_GPU = "Yes";
+        } else {
+            apply_blur_filter( image, 5, 20, parallelization_type) ;
+            Using_GPU = "No";
+        }
+        gettimeofday(&t2, NULL);
+        blur_duration = (t2.tv_sec - t1.tv_sec) + ((t2.tv_usec - t1.tv_usec) / 1e6);
+
+#if PRINT_TIME
+        printf( "Blur filter done in %lf s\n", blur_duration );
+#endif
+    }
+
+    // ----- MPI SOBEL FILTER SECTION -----
     
-    char * Using_OpenMP;
-    int parallelization_type;
+    // Broadcast number of images to all processes
+    int n_images;
+    if (rank == 0) n_images = image->n_images;
+    MPI_Bcast(&n_images, 1, MPI_INT, 0, MPI_COMM_WORLD);
+
+    // Calculate images per process
+    int images_per_proc = n_images / size;
+    int remainder = n_images % size;
+    int start = rank * images_per_proc + ((rank < remainder) ? rank : remainder);
+    int my_count = images_per_proc + ((rank < remainder) ? 1 : 0);
+    if (start >= n_images) my_count = 0;
+
+    // Create MPI datatype for pixel
+    MPI_Datatype pixel_type;
+    MPI_Type_contiguous(3, MPI_INT, &pixel_type);
+    MPI_Type_commit(&pixel_type);
+
+    int *my_widths = NULL, *my_heights = NULL;
+    pixel **my_pixels = NULL;
+
+    // Distribute the data
+    if (rank == 0) {
+        for (int p = 1; p < size; p++) {
+            int p_start = p * images_per_proc + ((p < remainder) ? p : remainder);
+            int p_count = images_per_proc + ((p < remainder) ? 1 : 0);
+            if (p_start >= n_images) continue;
+
+            for (int i = 0; i < p_count; i++) {
+                int idx = p_start + i;
+                int w = image->width[idx], h = image->height[idx];
+                MPI_Send(&w, 1, MPI_INT, p, 0, MPI_COMM_WORLD);
+                MPI_Send(&h, 1, MPI_INT, p, 0, MPI_COMM_WORLD);
+                MPI_Send(image->p[idx], w*h, pixel_type, p, 0, MPI_COMM_WORLD);
+            }
+        }
+
+        // Use proper CUDA-compatible casting for malloc
+        my_widths = (int*)malloc(my_count * sizeof(int));
+        my_heights = (int*)malloc(my_count * sizeof(int));
+        my_pixels = (pixel**)malloc(my_count * sizeof(pixel*));
+        
+        for (int i = 0; i < my_count; i++) {
+            int idx = start + i;
+            my_widths[i] = image->width[idx];
+            my_heights[i] = image->height[idx];
+            my_pixels[i] = image->p[idx];
+        }
+    } else if (my_count > 0) {
+        // Use proper CUDA-compatible casting for malloc
+        my_widths = (int*)malloc(my_count * sizeof(int));
+        my_heights = (int*)malloc(my_count * sizeof(int));
+        my_pixels = (pixel**)malloc(my_count * sizeof(pixel*));
+        
+        for (int i = 0; i < my_count; i++) {
+            MPI_Recv(&my_widths[i], 1, MPI_INT, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+            MPI_Recv(&my_heights[i], 1, MPI_INT, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+            int size = my_widths[i] * my_heights[i];
+            my_pixels[i] = (pixel*)malloc(size * sizeof(pixel));
+            MPI_Recv(my_pixels[i], size, pixel_type, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        }
+    }
+
+    // Store pixel dimensions for CSV output
+    int pixel_count = 0;
+    if (rank == 0 && my_count > 0) {
+        pixel_count = my_widths[0] * my_heights[0];
+    }
     
-    if (image->n_images >= 16) {
-        parallelization_type = PARALLELIZE_IMAGES;
-        Using_OpenMP = "Using_OpenMP on images";
-    } else if (image->width[0] * image->height[0] >= 100000) {
-        parallelization_type = PARALLELIZE_PIXELS;
-        Using_OpenMP = "Using_OpenMP on pixels";
-    } else {
-        parallelization_type = NO_PARALLELIZATION;
-        Using_OpenMP = "No";
+    // Synchronize all processes before starting Sobel filter
+    MPI_Barrier(MPI_COMM_WORLD);
+    
+    // Start timer on rank 0
+    if (rank == 0) {
+        gettimeofday(&t1, NULL);
+    }
+    
+    // Each process applies the Sobel filter to its assigned images
+    for (int i = 0; i < my_count; i++) {
+        animated_gif tmp = {
+            .n_images = 1,
+            .width = &my_widths[i],
+            .height = &my_heights[i],
+            .p = &my_pixels[i]
+        };
+        apply_sobel_filter(&tmp, NO_PARALLELIZATION);  // No OpenMP within MPI processes
+    }
+    
+    // Synchronize all processes after completion
+    MPI_Barrier(MPI_COMM_WORLD);
+    
+    // Stop timer on rank 0
+    if (rank == 0) {
+        gettimeofday(&t2, NULL);
+        sobel_duration = (t2.tv_sec - t1.tv_sec) + ((t2.tv_usec - t1.tv_usec) / 1e6);
+#if PRINT_TIME
+        printf("Sobel filter completed in %lf s\n", sobel_duration);
+#endif
     }
 
-    int nb_images = image->n_images;
-    int nb_pixels = image->width[0] * image->height[0];
+    // Gather processed data back to rank 0
+    if (rank != 0 && my_count > 0) {
+        for (int i = 0; i < my_count; i++) {
+            MPI_Send(my_pixels[i], my_widths[i]*my_heights[i], pixel_type, 0, 0, MPI_COMM_WORLD);
+        }
+    } else if (rank == 0) {
+        for (int p = 1; p < size; p++) {
+            int p_start = p * images_per_proc + ((p < remainder) ? p : remainder);
+            int p_count = images_per_proc + ((p < remainder) ? 1 : 0);
+            if (p_start >= n_images) continue;
 
-
-    /* FILTER Timer start */
-    gettimeofday(&t1, NULL);
-
-    /* Gray Filter Timer start */
-    gettimeofday(&t1, NULL);
-    apply_gray_filter( image, parallelization_type) ;
-    gettimeofday(&t2, NULL);
-    gray_duration = (t2.tv_sec -t1.tv_sec)+((t2.tv_usec-t1.tv_usec)/1e6);
-
-#if PRINT_TIME
-    printf( "Gray filter done in %lf s\n", gray_duration );
-#endif
-
-
-    char * Using_GPU ;
-    /* Blur Filter Timer start */
-    gettimeofday(&t1, NULL);
-    if (nb_images * nb_pixels >= 5000000) {
-        apply_blur_filter_multi_gpu(image, 5, 20);
-        Using_GPU = "Yes";
-
-    } else {
-        apply_blur_filter( image, 5, 20, parallelization_type) ;
-        Using_GPU = "No";
+            for (int i = 0; i < p_count; i++) {
+                int idx = p_start + i;
+                int w = image->width[idx], h = image->height[idx];
+                MPI_Recv(image->p[idx], w*h, pixel_type, p, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+            }
+        }
     }
-    gettimeofday(&t2, NULL);
-    blur_duration = (t2.tv_sec -t1.tv_sec)+((t2.tv_usec-t1.tv_usec)/1e6);
+
+    // Cleanup MPI resources
+    MPI_Type_free(&pixel_type);
+    if (rank != 0) {
+        for (int i = 0; i < my_count; i++) {
+            free(my_pixels[i]);
+        }
+        free(my_pixels);
+        free(my_widths);
+        free(my_heights);
+    }
+
+    // Only the root process continues with the rest of the sequential code
+    if (rank == 0) {
+        /* Calculate total filter duration */
+        filter_duration = gray_duration + blur_duration + sobel_duration;
+        printf("Total filter time: %lf s\n", filter_duration);
+
+        /* EXPORT Timer start */
+        gettimeofday(&t1, NULL);
+
+        /* Store file from array of pixels to GIF file */
+        if (!store_pixels(output_filename, image, NO_PARALLELIZATION)) {
+            MPI_Finalize();
+            return 1;
+        }
+ 
+        /* EXPORT Timer stop */
+        gettimeofday(&t2, NULL);
+
+        export_duration = (t2.tv_sec - t1.tv_sec) + ((t2.tv_usec - t1.tv_usec) / 1e6);
 
 #if PRINT_TIME
-    printf( "Blur filter done in %lf s\n", blur_duration );
+        printf("Export done in %lf s in file %s\n", export_duration, output_filename);
 #endif
 
-    /* Sobel Filter Timer start */
-    gettimeofday(&t1, NULL);
-    apply_sobel_filter( image, parallelization_type) ;
-    gettimeofday(&t2, NULL);
-    sobel_duration = (t2.tv_sec -t1.tv_sec)+((t2.tv_usec-t1.tv_usec)/1e6);
+        /* Write durations to file */
+        fprintf(duration_file, "%s,%s,%s,%d,%d,%lf,%lf,%lf,%lf,%lf\n", 
+                input_filename, Using_OpenMP, Using_GPU, n_images, pixel_count, 
+                import_duration, gray_duration, blur_duration, sobel_duration, export_duration);
 
-#if PRINT_TIME
-    printf( "Sobel filter done in %lf s\n", sobel_duration );
-#endif
+        /* Close the file */
+        fclose(duration_file);
+        
+        /* Free the image data */
+        free(image);
+    }
 
-    /* FILTER Timer stop */
-    filter_duration = gray_duration + blur_duration + sobel_duration;
-    printf( "Total filter time: %lf s\n", filter_duration );
-
-    /* EXPORT Timer start */
-    gettimeofday(&t1, NULL);
-
-    /* Store file from array of pixels to GIF file */
-    if ( !store_pixels( output_filename, image, parallelization_type ) ) { return 1 ; }
-
-    /* EXPORT Timer stop */
-    gettimeofday(&t2, NULL);
-
-    export_duration = (t2.tv_sec -t1.tv_sec)+((t2.tv_usec-t1.tv_usec)/1e6);
-
-#if PRINT_TIME
-    printf( "Export done in %lf s in file %s\n", export_duration, output_filename );
-#endif
-
-    /* Write durations to file */
-    fprintf(duration_file, "%s,%s,%s,%d,%d,%lf,%lf,%lf,%lf,%lf\n", input_filename, Using_OpenMP, Using_GPU, nb_images, nb_pixels, import_duration, gray_duration, blur_duration, sobel_duration, export_duration);
-
-    /* Close the file */
-    fclose(duration_file);
-
-    return 0 ;
+    MPI_Finalize();
+    return 0;
 }
-

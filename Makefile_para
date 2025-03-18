@@ -1,17 +1,79 @@
+# SRC_DIR=src_para
+# HEADER_DIR=include
+# OBJ_DIR=obj_para
+
+# # CUDA compiler
+# CC=nvcc -I.
+
+# # OpenMP flags for CUDA
+# # -Xcompiler flag passes options to the underlying host compiler
+# OPENMP_FLAGS=-Xcompiler -fopenmp
+
+# # Combine flags
+# CFLAGS=-O3 -g -I$(HEADER_DIR) $(OPENMP_FLAGS)
+# LDFLAGS=-lm -Xcompiler -fopenmp
+
+# SRC= $(SRC_DIR)/dgif_lib_para.c \
+#      $(SRC_DIR)/egif_lib_para.c \
+#      $(SRC_DIR)/gif_err_para.c \
+#      $(SRC_DIR)/gif_font_para.c \
+#      $(SRC_DIR)/gif_hash_para.c \
+#      $(SRC_DIR)/gifalloc_para.c \
+#      $(SRC_DIR)/main_para.cu \
+#      $(SRC_DIR)/openbsd-reallocarray_para.c \
+#      $(SRC_DIR)/quantize_para.c
+
+# OBJ= $(OBJ_DIR)/dgif_lib_para.o \
+#      $(OBJ_DIR)/egif_lib_para.o \
+#      $(OBJ_DIR)/gif_err_para.o \
+#      $(OBJ_DIR)/gif_font_para.o \
+#      $(OBJ_DIR)/gif_hash_para.o \
+#      $(OBJ_DIR)/gifalloc_para.o \
+#      $(OBJ_DIR)/main_para.o \
+#      $(OBJ_DIR)/openbsd-reallocarray_para.o \
+#      $(OBJ_DIR)/quantize_para.o
+
+# .PHONY: all clean
+
+# all: $(OBJ_DIR) sobelf_para
+
+# $(OBJ_DIR):
+# 	mkdir -p $(OBJ_DIR)
+
+# # Rule for C files
+# $(OBJ_DIR)/%.o: $(SRC_DIR)/%.c
+# 	$(CC) $(CFLAGS) -c -o $@ $<
+
+# # Rule for CUDA files
+# $(OBJ_DIR)/%.o: $(SRC_DIR)/%.cu
+# 	$(CC) $(CFLAGS) -c -o $@ $<
+
+# sobelf_para: $(OBJ)
+# 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
+
+# clean:
+# 	rm -rf sobelf_para $(OBJ_DIR)
+
+
 SRC_DIR=src_para
 HEADER_DIR=include
 OBJ_DIR=obj_para
 
-# CUDA compiler
-CC=nvcc -I.
+# MPI wrapper for CUDA
+MPICC=mpicc
+# CUDA compiler with MPI support
+CC=nvcc -I. -ccbin=$(MPICC)
 
 # OpenMP flags for CUDA
 # -Xcompiler flag passes options to the underlying host compiler
 OPENMP_FLAGS=-Xcompiler -fopenmp
 
+# MPI flags for CUDA
+MPI_FLAGS=-Xcompiler "-I$(shell mpicc --showme:incdirs)"
+
 # Combine flags
-CFLAGS=-O3 -g -I$(HEADER_DIR) $(OPENMP_FLAGS)
-LDFLAGS=-lm -Xcompiler -fopenmp
+CFLAGS=-O3 -g -I$(HEADER_DIR) $(OPENMP_FLAGS) $(MPI_FLAGS)
+LDFLAGS=-lm -Xcompiler -fopenmp -Xlinker "$(shell mpicc --showme:libs)"
 
 SRC= $(SRC_DIR)/dgif_lib_para.c \
      $(SRC_DIR)/egif_lib_para.c \
@@ -33,7 +95,7 @@ OBJ= $(OBJ_DIR)/dgif_lib_para.o \
      $(OBJ_DIR)/openbsd-reallocarray_para.o \
      $(OBJ_DIR)/quantize_para.o
 
-.PHONY: all clean
+.PHONY: all clean run
 
 all: $(OBJ_DIR) sobelf_para
 
@@ -50,6 +112,10 @@ $(OBJ_DIR)/%.o: $(SRC_DIR)/%.cu
 
 sobelf_para: $(OBJ)
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
+
+# Run with MPI (default 4 processes)
+run: sobelf_para
+	mpirun -np 4 ./sobelf_para $(ARGS)
 
 clean:
 	rm -rf sobelf_para $(OBJ_DIR)
