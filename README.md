@@ -10,11 +10,11 @@
 
 ### Compilation Artifacts
 - `obj/`: Object files for sequential C code
-- `obj_para/`: Object files for parallelized C code
+- `obj_para_OpenMP/`: Object files for parallelized C code
 
 ### Source Code
 - `src/`: Sequential C source files
-- `src_para/`: Parallelized C source files (names end with `_para`)
+- `src_para_OpenMP/`: Parallelized C source files (names end with `_para`)
 
 ### Utility Folders
 - `check/`: Script to verify image matching between processed and baseline folders
@@ -24,8 +24,8 @@
 ### Key Files
 - `Compare_runtime.py`: Runtime comparison between sequential and parallelized processes
 - `Makefile`: Compilation commands for sequential version
-- `Makefile_para`: Compilation commands for parallelized version
-- `durations_para.csv` and `durations_seq.csv`: Runtime duration logs
+- `Makefile_para_OpenMP`: Compilation commands for parallelized version using only OpenMP
+- `durations_para_OpenMP.csv` and `durations_seq.csv`: Runtime duration logs
 
 ## Execution Guide
 
@@ -41,16 +41,16 @@
 ### Parallelized Run Workflow
 The `./run_para.sh` script executes:
 1. Compile parallelized code version
-2. Reset `durations_para.csv`
+2. Reset `durations_para_OpenMP.csv`
 3. Generate processed images
 4. Populate duration logs
-5. Verify processed images
+5. Verify processed images using check script
 6. Compare step-wise runtime:
-   - Image Import
+   - Image Import (load pixels)
    - Gray Filter
    - Blur Filter
    - Sobel Filter
-   - Image Export
+   - Image Export (store pixels)
 
 ## ⚠️ Important Notes
 - Sequential results: `./images/processed_sequential`
