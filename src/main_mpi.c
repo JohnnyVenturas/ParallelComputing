@@ -676,7 +676,7 @@ void apply_blur_filter(animated_gif *image, int size, int threshold) {
 }
 
 void apply_sobel_filter(animated_gif *image) {
-    #pragma omp parallel  // Create persistent team of threads
+    #pragma omp parallel  
     {
         for (int i = 0; i < image->n_images; i++) {
             const int width = image->width[i];
@@ -684,14 +684,13 @@ void apply_sobel_filter(animated_gif *image) {
             pixel *pixels = image->p[i];
             pixel *sobel = malloc(width * height * sizeof(pixel));
 
-            // Sobel computation with 2D parallelization and vectorization
             #pragma omp for collapse(2) schedule(guided) nowait
             for (int j = 1; j < height - 1; j++) {
                 #pragma omp simd aligned(pixels, sobel : 64)
                 for (int k = 1; k < width - 1; k++) {
                     const int conv_idx = CONV(j, k, width);
                     
-                    // Load neighbor pixels using direct memory access
+                    
                     const int offsets[] = {
                         CONV(j-1, k-1, width), CONV(j-1, k, width), CONV(j-1, k+1, width),
                         CONV(j+1, k-1, width), CONV(j+1, k, width), CONV(j+1, k+1, width),
@@ -707,21 +706,19 @@ void apply_sobel_filter(animated_gif *image) {
                     const int b_o  = pixels[offsets[6]].b;
                     const int b_e  = pixels[offsets[8]].b;
 
-                    // Compute gradients using integer arithmetic
+                    
                     const float deltaX = -b_no + b_ne - 2*b_o + 2*b_e - b_so + b_se;
                     const float deltaY = b_se + 2*b_s + b_so - b_ne - 2*b_n - b_no;
                     const float val = sqrtf(deltaX*deltaX + deltaY*deltaY) / 4.0f;
 
-                    // Branchless thresholding using bitwise operations
+                    
                     const unsigned char result = (val > 50.0f) ? 255 : 0;
                     sobel[conv_idx] = (pixel){result, result, result};
                 }
             }
 
-            // Wait for all threads to finish computation before updating pixels
             #pragma omp barrier
 
-            // Parallel pixel update with vectorization
             #pragma omp for simd collapse(2) schedule(static) aligned(pixels, sobel : 64)
             for (int j = 1; j < height - 1; j++) {
                 for (int k = 1; k < width - 1; k++) {
