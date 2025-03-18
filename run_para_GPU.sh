@@ -45,3 +45,5 @@ echo ""
 echo -e "\n Printing results... \n"
 python Compare_runtime.py
 
+# plot results
+python plot.py
