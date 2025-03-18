@@ -1,6 +1,6 @@
-SRC_DIR=src
+SRC_DIR=src_para
 HEADER_DIR=include
-OBJ_DIR=obj
+OBJ_DIR=obj_para
 
 CC=mpicc
 CFLAGS=-O3 -I$(HEADER_DIR)
@@ -12,7 +12,6 @@ SRC= dgif_lib.c \
 	gif_font.c \
 	gif_hash.c \
 	gifalloc.c \
-	main.c \
 	main_mpi.c \
 	openbsd-reallocarray.c \
 	quantize.c
@@ -26,10 +25,9 @@ OBJ_COMMON= $(OBJ_DIR)/dgif_lib.o \
 	$(OBJ_DIR)/openbsd-reallocarray.o \
 	$(OBJ_DIR)/quantize.o
 
-OBJ_MAIN=$(OBJ_COMMON) $(OBJ_DIR)/main.o
 OBJ_MAIN_MPI=$(OBJ_COMMON) $(OBJ_DIR)/main_mpi.o
 
-all: $(OBJ_DIR) sobelf sobelf_mpi
+all: $(OBJ_DIR) sobel_mpi
 
 $(OBJ_DIR):
 	mkdir -p $(OBJ_DIR)

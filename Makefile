@@ -2,7 +2,7 @@ SRC_DIR=src
 HEADER_DIR=include
 OBJ_DIR=obj
 
-CC=mpicc
+CC=gcc
 CFLAGS=-O3 -I$(HEADER_DIR)
 LDFLAGS=-lm
 
@@ -27,7 +27,7 @@ OBJ_COMMON= $(OBJ_DIR)/dgif_lib.o \
 
 OBJ_MAIN=$(OBJ_COMMON) $(OBJ_DIR)/main.o
 
-all: $(OBJ_DIR) sobelf 
+all: $(OBJ_DIR) sobel
 
 $(OBJ_DIR):
 	mkdir -p $(OBJ_DIR)
@@ -40,5 +40,5 @@ sobelf: $(OBJ_MAIN)
 
 
 clean:
-	rm -f sobelf sobelf_mpi $(OBJ_DIR)/*.o
+	rm -f sobel sobel_mpi $(OBJ_DIR)/*.o
 
