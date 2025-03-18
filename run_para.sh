@@ -1,16 +1,16 @@
 #!/bin/bash
-
 # This script runs the parallelized version of the sobel filter on all images in the images/original directory
 # and saves the results in the images/parallelized directory.
-# The number of threads to use is passed as an argument to the script.
+# The number of threads and MPI nodes to use are passed as arguments to the script.
 
-if [ -z "$1" ]; then
-    echo "Usage: $0 <num_threads>"
+if [ $# -lt 2 ]; then
+    echo "Usage: $0 <num_threads> <num_mpi_nodes>"
     exit 1
 fi
 
 export OMP_NUM_THREADS=$1
-echo -e "\n Running with $OMP_NUM_THREADS threads \n"
+export MPI_NODES=$2
+echo -e "\n Running with $OMP_NUM_THREADS threads and $MPI_NODES MPI nodes \n"
 
 # Set the project directory
 export PROJECT_DIRECTORY=$(pwd)
@@ -32,8 +32,8 @@ for i in $INPUT_DIR/*gif ; do
     FILENAME=$(basename $i)
     FILEDEST=$(basename $DEST)
     echo -e "\nProcessing $FILENAME -> $FILEDEST"
-
-    ./sobelf_para $i $DEST
+    
+    mpirun -np $MPI_NODES ./sobelf_para $i $DEST
 done
 
 # Check the results
@@ -42,8 +42,7 @@ echo "=============="
 echo -e "Baseline:./images/baseline_result"
 echo -e "Processed:./images/processed_parallelized"
 echo ""
-./check images/processed_parallelized
-
+./check images/processed_parallelized 
 
 # Printing the results in terminal
 echo -e "\n Printing results... \n"
