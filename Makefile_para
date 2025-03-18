@@ -97,7 +97,7 @@ OBJ= $(OBJ_DIR)/dgif_lib_para.o \
 
 .PHONY: all clean run
 
-all: $(OBJ_DIR) sobelf_para
+all: $(OBJ_DIR) sobel_para
 
 $(OBJ_DIR):
 	mkdir -p $(OBJ_DIR)
@@ -110,12 +110,12 @@ $(OBJ_DIR)/%.o: $(SRC_DIR)/%.c
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.cu
 	$(CC) $(CFLAGS) -c -o $@ $<
 
-sobelf_para: $(OBJ)
+sobel_para: $(OBJ)
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
 # Run with MPI (default 4 processes)
-run: sobelf_para
-	mpirun -np 4 ./sobelf_para $(ARGS)
+run: sobel_para
+	mpirun -np 4 ./sobel_para $(ARGS)
 
 clean:
-	rm -rf sobelf_para $(OBJ_DIR)
+	rm -rf sobel_para $(OBJ_DIR)

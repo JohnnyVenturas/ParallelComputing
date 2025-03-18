@@ -33,7 +33,7 @@ for i in $INPUT_DIR/*gif ; do
     FILEDEST=$(basename $DEST)
     echo -e "\nProcessing $FILENAME -> $FILEDEST"
     
-    mpirun -np $MPI_NODES ./sobelf_para $i $DEST
+    mpirun -np $MPI_NODES ./sobel_para $i $DEST
 done
 
 # Check the results
