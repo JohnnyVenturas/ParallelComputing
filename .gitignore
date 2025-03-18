@@ -1,0 +1,10 @@
+# Ignorer les images dans le dossier images
+# images/
+
+test_openmp.c
+
+/obj_para/
+/obj/
+
+/images/processed_parallelized_MPI/
+
