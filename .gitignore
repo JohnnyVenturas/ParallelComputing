@@ -5,6 +5,7 @@ test_openmp.c
 
 /obj_para/
 /obj/
+/obj_para_no_mpi/
 
 /images/processed_parallelized/
 

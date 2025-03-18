@@ -2,6 +2,7 @@
 # This script runs the parallelized version of the sobel filter on all images in the images/original directory
 # and saves the results in the images/parallelized directory.
 # The number of threads is passed as an argument, and MPI nodes are dynamically set based on image count.
+# Uses non-MPI version when only 1 MPI node is needed.
 
 if [ $# -lt 1 ]; then
     echo "Usage: $0 <num_threads>"
@@ -15,7 +16,8 @@ echo -e "\n Running with $OMP_NUM_THREADS threads and dynamic MPI nodes based on
 export PROJECT_DIRECTORY=$(pwd)
 echo -e "Project directory set to $PROJECT_DIRECTORY \n"
 
-make -f Makefile_para
+# Build both MPI and non-MPI versions
+make -f Makefile_para all
 
 INPUT_DIR=images/original
 OUTPUT_DIR=images/processed_parallelized
@@ -63,9 +65,14 @@ for i in $INPUT_DIR/*gif ; do
         MPI_NODES=$MAX_NODES
     fi
     
-    echo -e "\nProcessing $FILENAME -> $FILEDEST with $MPI_NODES MPI nodes (based on $IMAGE_COUNT images)"
-    
-    mpirun -np $MPI_NODES ./sobel_para $i $DEST
+    # Choose appropriate executable based on node count
+    if [ $MPI_NODES -eq 1 ]; then
+        echo -e "\nProcessing $FILENAME -> $FILEDEST with non-MPI version (single process)"
+        ./sobel_para_without_MPI $i $DEST
+    else
+        echo -e "\nProcessing $FILENAME -> $FILEDEST with $MPI_NODES MPI nodes (based on $IMAGE_COUNT images)"
+        mpirun -np $MPI_NODES ./sobel_para $i $DEST
+    fi
 done
 
 # Check the results

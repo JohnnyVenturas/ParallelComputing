@@ -11,6 +11,7 @@
 ### Compilation Artifacts
 - `obj/`: Object files for sequential C code
 - `obj_para/`: Object files for parallelized C code
+- 'obj_para_no_mpi/': Object files for parallelized C code without MPI
 
 ### Source Code
 - `src/`: Sequential C source files
@@ -38,7 +39,7 @@ source set_env.sh
 ./run_test.sh
 
 # Parallelized processing
-./run_para.sh <nb_threads>
+./run_para.sh <nb_threads> <nb_nodes>
 ```
 
 ### Parallelized Run Workflow
