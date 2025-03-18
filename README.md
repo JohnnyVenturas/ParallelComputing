@@ -44,13 +44,13 @@ The `./run_para.sh` script executes:
 2. Reset `durations_para.csv`
 3. Generate processed images
 4. Populate duration logs
-5. Verify processed images
+5. Verify processed images using the script check
 6. Compare step-wise runtime:
-   - Image Import
+   - Image Import ("load pixels")
    - Gray Filter
    - Blur Filter
    - Sobel Filter
-   - Image Export
+   - Image Export ("store pixels")
 
 ## ⚠️ Important Notes
 - Sequential results: `./images/processed_sequential`
