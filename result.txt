@@ -1,0 +1,211 @@
+
+ Running with 16 nodes 
+
+Project directory set to /users/eleves-b/2021/bogdan.budura/Desktop/AdvanceParallelComputing/ParallelComputing 
+
+make: Nothing to be done for 'all'.
+
+Processing 051009.vince.gif -> 051009.vince-sobel.gif
+Total filter time: 0.048064 s
+
+Processing 1.gif -> 1-sobel.gif
+Total filter time: 0.019599 s
+
+Processing 200_s.gif -> 200_s-sobel.gif
+Total filter time: 0.009135 s
+
+Processing 9815573.gif -> 9815573-sobel.gif
+Total filter time: 0.006835 s
+
+Processing australian-flag-large.gif -> australian-flag-large-sobel.gif
+Total filter time: 0.034422 s
+
+Processing Campusplan-Hausnr.gif -> Campusplan-Hausnr-sobel.gif
+Total filter time: 2.652860 s
+
+Processing Campusplan-Mobilitaetsbeschraenkte.gif -> Campusplan-Mobilitaetsbeschraenkte-sobel.gif
+Total filter time: 2.654547 s
+
+Processing fire.gif -> fire-sobel.gif
+Total filter time: 0.002259 s
+
+Processing frame_002.gif -> frame_002-sobel.gif
+Total filter time: 0.011731 s
+
+Processing giphy-3.gif -> giphy-3-sobel.gif
+Total filter time: 0.090667 s
+
+Processing Mandelbrot-large.gif -> Mandelbrot-large-sobel.gif
+Total filter time: 0.170718 s
+
+Processing porsche.gif -> porsche-sobel.gif
+Total filter time: 0.004841 s
+
+Processing Produits_sous_linux.gif -> Produits_sous_linux-sobel.gif
+Total filter time: 0.030687 s
+
+Processing TimelyHugeGnu.gif -> TimelyHugeGnu-sobel.gif
+Total filter time: 0.018342 s
+
+Processing tumblr_myxlbtwVEb1qzt4vjo1_r14_500_large.gif -> tumblr_myxlbtwVEb1qzt4vjo1_r14_500_large-sobel.gif
+Total filter time: 0.022616 s
+
+Results check:
+==============
+Baseline:./images/baseline_result
+Processed:./images/processed_parallelized_MPI
+
+Running script
+051009.vince-sobel.gif
+(SUCCESS)		Testing image 051009.vince-sobel.gif from folder images/baseline_result against images/processed_parallelized_MPI
+1-sobel.gif
+(SUCCESS)		Testing image 1-sobel.gif from folder images/baseline_result against images/processed_parallelized_MPI
+200_s-sobel.gif
+(SUCCESS)		Testing image 200_s-sobel.gif from folder images/baseline_result against images/processed_parallelized_MPI
+9815573-sobel.gif
+(SUCCESS)		Testing image 9815573-sobel.gif from folder images/baseline_result against images/processed_parallelized_MPI
+australian-flag-large-sobel.gif
+(SUCCESS)		Testing image australian-flag-large-sobel.gif from folder images/baseline_result against images/processed_parallelized_MPI
+Campusplan-Hausnr-sobel.gif
+(SUCCESS)		Testing image Campusplan-Hausnr-sobel.gif from folder images/baseline_result against images/processed_parallelized_MPI
+Campusplan-Mobilitaetsbeschraenkte-sobel.gif
+(SUCCESS)		Testing image Campusplan-Mobilitaetsbeschraenkte-sobel.gif from folder images/baseline_result against images/processed_parallelized_MPI
+fire-sobel.gif
+(SUCCESS)		Testing image fire-sobel.gif from folder images/baseline_result against images/processed_parallelized_MPI
+frame_002-sobel.gif
+(SUCCESS)		Testing image frame_002-sobel.gif from folder images/baseline_result against images/processed_parallelized_MPI
+giphy-3-sobel.gif
+(SUCCESS)		Testing image giphy-3-sobel.gif from folder images/baseline_result against images/processed_parallelized_MPI
+Mandelbrot-large-sobel.gif
+(SUCCESS)		Testing image Mandelbrot-large-sobel.gif from folder images/baseline_result against images/processed_parallelized_MPI
+porsche-sobel.gif
+(SUCCESS)		Testing image porsche-sobel.gif from folder images/baseline_result against images/processed_parallelized_MPI
+Produits_sous_linux-sobel.gif
+(SUCCESS)		Testing image Produits_sous_linux-sobel.gif from folder images/baseline_result against images/processed_parallelized_MPI
+TimelyHugeGnu-sobel.gif
+(SUCCESS)		Testing image TimelyHugeGnu-sobel.gif from folder images/baseline_result against images/processed_parallelized_MPI
+tumblr_myxlbtwVEb1qzt4vjo1_r14_500_large-sobel.gif
+(SUCCESS)		Testing image tumblr_myxlbtwVEb1qzt4vjo1_r14_500_large-sobel.gif from folder images/baseline_result against images/processed_parallelized_MPI
+
+ Printing results... 
+
+
+ Comparing 051009.vince.gif (Images: 1, Pixels: 1354892)
+ MPI: Yes, Processes: 256
+  Import Duration: 0.037647 (slower than 0.018979, slowdown: 1.98x)
+  Gray Filter Duration: 0.001806 (slower than 0.001314, slowdown: 1.37x)
+  Blur Filter Duration: 0.041749 (faster than 0.069325, speedup: 1.66x)
+  Sobel Filter Duration: 0.004509 (faster than 0.005817, speedup: 1.29x)
+  Export Duration: 0.13255 (slower than 0.125158, slowdown: 1.06x)
+
+ Comparing 1.gif (Images: 10, Pixels: 250000)
+ MPI: Yes, Processes: 256
+  Import Duration: 0.052696 (slower than 0.017558, slowdown: 3.00x)
+  Gray Filter Duration: 0.000813 (faster than 0.003274, speedup: 4.03x)
+  Blur Filter Duration: 0.01642 (faster than 0.091819, speedup: 5.59x)
+  Sobel Filter Duration: 0.002366 (faster than 0.00811, speedup: 3.43x)
+  Export Duration: 0.131732 (slower than 0.109911, slowdown: 1.20x)
+
+ Comparing 200_s.gif (Images: 1, Pixels: 40000)
+ MPI: Yes, Processes: 256
+  Import Duration: 0.002232 (slower than 0.000574, slowdown: 3.89x)
+  Gray Filter Duration: 0.007372 (slower than 3.1e-05, slowdown: 237.81x)
+  Blur Filter Duration: 0.000854 (slower than 0.000394, slowdown: 2.17x)
+  Sobel Filter Duration: 0.000909 (slower than 0.00014, slowdown: 6.49x)
+  Export Duration: 0.002455 (slower than 0.001834, slowdown: 1.34x)
+
+ Comparing 9815573.gif (Images: 10, Pixels: 140500)
+ MPI: Yes, Processes: 256
+  Import Duration: 0.03887 (slower than 0.011868, slowdown: 3.28x)
+  Gray Filter Duration: 0.000701 (faster than 0.001695, speedup: 2.42x)
+  Blur Filter Duration: 0.005187 (faster than 0.040202, speedup: 7.75x)
+  Sobel Filter Duration: 0.000947 (faster than 0.003357, speedup: 3.54x)
+  Export Duration: 0.064713 (slower than 0.057543, slowdown: 1.12x)
+
+ Comparing australian-flag-large.gif (Images: 1, Pixels: 720000)
+ MPI: Yes, Processes: 256
+  Import Duration: 0.014241 (slower than 0.005287, slowdown: 2.69x)
+  Gray Filter Duration: 0.001736 (slower than 0.001173, slowdown: 1.48x)
+  Blur Filter Duration: 0.03043 (faster than 0.0377, speedup: 1.24x)
+  Sobel Filter Duration: 0.002256 (slower than 0.002126, slowdown: 1.06x)
+  Export Duration: 0.017291 (slower than 0.013225, slowdown: 1.31x)
+
+ Comparing Campusplan-Hausnr.gif (Images: 1, Pixels: 69682912)
+ MPI: Yes, Processes: 256
+  Import Duration: 0.362784 (slower than 0.319422, slowdown: 1.14x)
+  Gray Filter Duration: 0.072978 (faster than 0.073808, speedup: 1.01x)
+  Blur Filter Duration: 2.319652 (faster than 4.028899, speedup: 1.74x)
+  Sobel Filter Duration: 0.26023 (faster than 0.269705, speedup: 1.04x)
+  Export Duration: 0.384615 (slower than 0.372548, slowdown: 1.03x)
+
+ Comparing Campusplan-Mobilitaetsbeschraenkte.gif (Images: 1, Pixels: 69689928)
+ MPI: Yes, Processes: 256
+  Import Duration: 0.365163 (slower than 0.321032, slowdown: 1.14x)
+  Gray Filter Duration: 0.073003 (slower than 0.072746, slowdown: 1.00x)
+  Blur Filter Duration: 2.321669 (faster than 3.985518, speedup: 1.72x)
+  Sobel Filter Duration: 0.259875 (faster than 0.26819, speedup: 1.03x)
+  Export Duration: 1.334664 (slower than 0.955166, slowdown: 1.40x)
+
+ Comparing fire.gif (Images: 33, Pixels: 1800)
+ MPI: Yes, Processes: 256
+  Import Duration: 0.003034 (slower than 0.001134, slowdown: 2.68x)
+  Gray Filter Duration: 0.000787 (slower than 9.6e-05, slowdown: 8.20x)
+  Blur Filter Duration: 0.00073 (slower than 0.000219, slowdown: 3.33x)
+  Sobel Filter Duration: 0.000742 (slower than 0.000362, slowdown: 2.05x)
+  Export Duration: 0.003262 (slower than 0.002233, slowdown: 1.46x)
+
+ Comparing frame_002.gif (Images: 1, Pixels: 263250)
+ MPI: Yes, Processes: 256
+  Import Duration: 0.00725 (slower than 0.002218, slowdown: 3.27x)
+  Gray Filter Duration: 0.001112 (slower than 0.000478, slowdown: 2.33x)
+  Blur Filter Duration: 0.00796 (slower than 0.006385, slowdown: 1.25x)
+  Sobel Filter Duration: 0.002659 (slower than 0.000985, slowdown: 2.70x)
+  Export Duration: 0.004939 (slower than 0.002889, slowdown: 1.71x)
+
+ Comparing giphy-3.gif (Images: 5, Pixels: 2073600)
+ MPI: Yes, Processes: 256
+  Import Duration: 0.115327 (slower than 0.077498, slowdown: 1.49x)
+  Gray Filter Duration: 0.004706 (faster than 0.010636, speedup: 2.26x)
+  Blur Filter Duration: 0.072928 (faster than 0.41212, speedup: 5.65x)
+  Sobel Filter Duration: 0.013033 (faster than 0.036009, speedup: 2.76x)
+  Export Duration: 0.790128 (slower than 0.588227, slowdown: 1.34x)
+
+ Comparing Mandelbrot-large.gif (Images: 20, Pixels: 1440000)
+ MPI: Yes, Processes: 256
+  Import Duration: 0.198208 (slower than 0.15196, slowdown: 1.30x)
+  Gray Filter Duration: 0.010584 (faster than 0.03512, speedup: 3.32x)
+  Blur Filter Duration: 0.12935 (faster than 0.83556, speedup: 6.46x)
+  Sobel Filter Duration: 0.030784 (faster than 0.075405, speedup: 2.45x)
+  Export Duration: 1.901922 (slower than 1.298629, slowdown: 1.46x)
+
+ Comparing porsche.gif (Images: 1, Pixels: 64000)
+ MPI: Yes, Processes: 256
+  Import Duration: 0.002751 (slower than 0.000971, slowdown: 2.83x)
+  Gray Filter Duration: 0.001224 (slower than 0.000104, slowdown: 11.77x)
+  Blur Filter Duration: 0.002657 (slower than 0.00215, slowdown: 1.24x)
+  Sobel Filter Duration: 0.00096 (slower than 0.000373, slowdown: 2.57x)
+  Export Duration: 0.003391 (slower than 0.002134, slowdown: 1.59x)
+
+ Comparing Produits_sous_linux.gif (Images: 1, Pixels: 760000)
+ MPI: Yes, Processes: 256
+  Import Duration: 0.015849 (slower than 0.005086, slowdown: 3.12x)
+  Gray Filter Duration: 0.001765 (slower than 0.000871, slowdown: 2.03x)
+  Blur Filter Duration: 0.026639 (faster than 0.031583, speedup: 1.19x)
+  Sobel Filter Duration: 0.002283 (faster than 0.002297, speedup: 1.01x)
+  Export Duration: 0.006264 (slower than 0.006202, slowdown: 1.01x)
+
+ Comparing TimelyHugeGnu.gif (Images: 19, Pixels: 230400)
+ MPI: Yes, Processes: 256
+  Import Duration: 0.083855 (slower than 0.039841, slowdown: 2.10x)
+  Gray Filter Duration: 0.001048 (faster than 0.004937, speedup: 4.71x)
+  Blur Filter Duration: 0.012892 (faster than 0.089614, speedup: 6.95x)
+  Sobel Filter Duration: 0.004402 (faster than 0.012002, speedup: 2.73x)
+  Export Duration: 0.303541 (slower than 0.266952, slowdown: 1.14x)
+
+ Comparing tumblr_myxlbtwVEb1qzt4vjo1_r14_500_large.gif (Images: 10, Pixels: 230400)
+ MPI: Yes, Processes: 256
+  Import Duration: 0.052026 (slower than 0.017766, slowdown: 2.93x)
+  Gray Filter Duration: 0.005236 (slower than 0.002972, slowdown: 1.76x)
+  Blur Filter Duration: 0.0153 (faster than 0.09673, speedup: 6.32x)
+  Sobel Filter Duration: 0.00208 (faster than 0.006901, speedup: 3.32x)
+  Export Duration: 0.272263 (slower than 0.259691, slowdown: 1.05x)
